@@ -34,6 +34,7 @@ sub new {
     mouth => undef, mouthstack => [], pushback => [], autoclose => 1, pending_comments => []
   }, $class; }
 
+our $DEBUG_COLUMN = 0;
 #**********************************************************************
 # Start reading tokens from a new Mouth.
 # This pushes the mouth as the current source that $gullet->readToken (etc) will read from.
@@ -206,7 +207,7 @@ our @hold_token = (
   0, 0, 1, 0,
   0, 0, 1);
 
-sub readToken {
+sub ZZreadToken {
   my ($self) = @_;
   #  my $token = shift(@{$$self{pushback}});
   my $token;
@@ -224,6 +225,103 @@ sub readToken {
     elsif ($cc == CC_MARKER) {
       LaTeXML::Core::Definition::stopProfiling($token, 'expand'); } }
   return $token; }
+
+sub readToken {
+  my ($self) = @_;
+  #  my $token = shift(@{$$self{pushback}});
+  my $token;
+  my $cc;
+    my($alignment,$column);
+  while(1){
+    # Check in pushback first....
+    while (($token = shift(@{ $$self{pushback} })) && $hold_token[$cc = $$token[1]]) {
+      if ($cc == CC_COMMENT) {
+        push(@{ $$self{pending_comments} }, $token); }
+      elsif ($cc == CC_MARKER) {
+        LaTeXML::Core::Definition::stopProfiling($token, 'expand'); } }
+    if(! defined $token){
+      while (($token = $$self{mouth}->readToken()) && $hold_token[$cc = $$token[1]]) {
+        if ($cc == CC_COMMENT) {
+          push(@{ $$self{pending_comments} }, $token); }    # What to do with comments???
+        elsif ($cc == CC_MARKER) {
+          LaTeXML::Core::Definition::stopProfiling($token, 'expand'); } }
+    }
+    # Wow!!!!!
+
+    if((defined $token)
+
+         && ($alignment = $STATE->lookupValue('Alignment'))
+         && $$alignment{in_column} # analog of align_state ????
+         && ($column = $alignment->currentColumn)
+
+         && (($cc == CC_ALIGN)
+##             || (($cc == CC_CS) && (($$token[0] eq '\cr') || ($$token[0] eq '\crcr')
+##                                    || ($$token[0] eq '\span')
+             || (($cc == CC_CS) && (Equals($token,T_CS('\cr')) || Equals($token,T_CS('\crcr'))
+                                    || Equals($token, T_CS('\span'))
+##             || (($cc == CC_CS) && (LaTeXML::Package::XEquals($token,T_CS('\cr')) || LaTeXML::Package::XEquals($token,T_CS('\crcr'))
+##                                    || LaTeXML::Package::XEquals($token, T_CS('\span'))
+
+##                                    || ($$token[0] eq '\@alignment@cr@marker') # !!!!
+##                                    || ($$token[0] eq '\@alignment@newline@marker')
+                                    # Huh? But \\\ is LET to \@alignment@newline!!!
+                                    # Hmm... we don't simulate let well enough?
+                                    || ($$token[0] eq '\@hidden@cr')
+####                                    || ($$token[0] eq '\\\\')
+####                                    || ($$token[0] eq '\@alignment@newline')
+####                                    || ($$token[0] eq '\@alignment@newline@noskip')
+                                  )))
+#         && ($alignment = $STATE->lookupValue('Alignment'))
+#         && $$alignment{in_column} # analog of align_state ????
+#         && ($column = $alignment->currentColumn)
+){
+
+      print STDERR "ALIGNMENT Column ended at ".Stringify($token)."@ ".ToString($self->getLocator)
+        if $DEBUG_COLUMN;
+      #  Append expansion to end!?!?!?!
+#####      my $defn = LaTeXML::Core::State::lookupExpandable($STATE, $token, 0);
+      local $LaTeXML::CURRENT_TOKEN = $token;
+######      my $repl = ($defn ? $defn->invoke($self) : [$token]);
+      my $repl = [$token];
+###my $repl = [T_CS('\@column@after'),T_CS('\egroup'),$token];
+###      my @r = ( afterCellUnlist($$column{after}), @$repl);
+###     $$alignment{in_column} = 0;
+###print STDERR " => ".ToString(Tokens(@r))."\n"
+###        if $DEBUG_COLUMN;
+###      unshift(@{$$self{pushback}},
+###             @r); }         # ???? Really should be something like \endtemplate or \realcr????
+      my $post = $alignment->getColumnAfter;
+     $$alignment{in_column} = 0;
+print STDERR " => ".ToString($post)."\n"
+        if $DEBUG_COLUMN;
+      unshift(@{$$self{pushback}}, $post->unlist, $token); }
+    else {
+      last; }
+}
+####print STDERR "GULLET yielded ".Stringify($token).($column?" in column":" outside column")."\n";
+  print STDERR "GULLET yielded ".Stringify($token).($column?" in column":" outside column")
+    .(Equals($token,T_CS('\cr')) ? " is CR":" is NOT cr")
+." == ".ToString($STATE->lookupDefinition($token))
+."\n"
+#    if $alignment && $DEBUG_COLUMN;
+    if $column && $DEBUG_COLUMN;
+#    if $ DEBUG_COLUMN;
+##  if($column && $STATE->lookupExpandable($token)){
+##    Fatal("What?","What?",$self,"Expandable???"); }
+  return $token; }
+
+sub afterCellUnlist {
+  my ($tokens) = @_;
+  return () unless $tokens;
+  my @toks = $tokens->unlist;
+  my @new  = ();
+  while (my $t = pop(@toks)) {
+##    if($t->equals(T_MATH) && @toks && $toks[-1]->equals(T_CS('\hfil'))){
+    if (Equals($t, T_MATH) && @toks && Equals($toks[-1], T_CS('\hfil'))) {
+      unshift(@new, pop(@toks)); push(@toks, $t); }
+    else {
+      unshift(@new, $t); } }
+  return @new; }
 
 # Unread tokens are assumed to be not-yet expanded.
 sub unread {
@@ -246,9 +344,10 @@ sub readXToken {
   my ($self, $toplevel, $commentsok) = @_;
   $toplevel = 1 unless defined $toplevel;
   return shift(@{ $$self{pending_comments} }) if $commentsok && @{ $$self{pending_comments} };
-  my ($token, $cc, $defn);
+  my ($token, $cc, $defn, $alignment, $column);
   while (1) {
-    $token = shift(@{ $$self{pushback} }) || $$self{mouth}->readToken();
+#######    $token = shift(@{ $$self{pushback} }) || $$self{mouth}->readToken();
+    $token = $self->readToken();
     if (!defined $token) {
       return unless $$self{autoclose} && $toplevel && @{ $$self{mouthstack} };
       $self->closeMouth; }    # Next input stream.
@@ -265,6 +364,8 @@ sub readXToken {
     elsif (defined($defn = LaTeXML::Core::State::lookupExpandable($STATE, $token, $toplevel))) {
       local $LaTeXML::CURRENT_TOKEN = $token;
       if (my $r = $defn->invoke($self)) {
+        print STDERR "GULLET EXPAND ".Stringify($token)." => ".ToString(Tokens(@$r))."\n"
+          if $STATE->lookupValue('Alignment') && $DEBUG_COLUMN;
         unshift(@{ $$self{pushback} },
           map { (!defined $_ ? ()
               : (($r = ref $_) eq 'LaTeXML::Core::Token' ? $_
@@ -429,7 +530,15 @@ sub readUntil {
   my ($n, $found, @tokens) = (0);
   while (!defined($found = $self->readMatch(@delims))) {
     my $token = $self->readToken();    # Copy next token to args
-    return unless defined $token;
+###    return unless defined $token;
+    if(! defined $token){              # Ran out!
+      print STDERR "UNTIL failed!\n";
+      print STDERR "Seeking one of ".
+        join(' or ',map { join(' ',map { Stringify($_) } $_->unlist); } @delims)."\n";
+      print STDERR "Read so far: ".join(' ', map { Stringify($_); } @tokens)."\n";
+      # Not more correct, but maybe less confusing if we put the read tokens BACK????
+      $self->unread(@tokens);
+      return; }
     push(@tokens, $token);
     $n++;
     if ($$token[1] == CC_BEGIN) {      # And if it's a BEGIN, copy till balanced END

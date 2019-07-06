@@ -265,7 +265,7 @@ DefConstructor("\\\\ OptionalMatch:* [Glue]",
   "?#isMath(<ltx:XMHint name='newline'/>)(<ltx:break/>)",
   reversion => Tokens(T_CS("\\\\"), T_CR));
 Let('\@normalcr', "\\\\");
-PushValue(TEXT_MODE_BINDINGS => [T_CS("\\\\"), T_CS('\@normalcr')]);
+###PushValue(TEXT_MODE_BINDINGS => [T_CS("\\\\"), T_CS('\@normalcr')]);
 
 DefMacro('\@nolnerr', '');
 DefMacro('\@centercr', '\ifhmode\unskip\else\@nolnerr\fi'
@@ -1831,6 +1831,7 @@ sub afterEquation {
   elsif (!$$tags{reset} && $$numbering{numbered}) {
     $$tags{tags} = Digest(Invocation(T_CS('\lx@make@tags'), $ctr)); }
 
+
   # Now install the tags in $whatsit or current Row, as appropriate.
   my $props = LookupValue('EQUATIONROW_TAGS');
   if ($$numbering{aligned}) {
@@ -2018,24 +2019,26 @@ DefPrimitive('\@equationgroup@numbering RequiredKeyVals', sub {
 # Alternate versions of alignment open/close@row that deal with numbering.
 # Depending on how an eqnarray ends, we might end up with an empty equation, which will be deleted.
 # If non-empty, we'll set an id, and perhaps a refnum.
-DefPrimitiveI('\@equationgroup@close@row', undef, sub { $_[0]->egroup; });
-DefConstructor('\@equationgroup@open@row SkipSpaces DigestedBody',
-  "",
-  reversion    => '#1',
-  beforeDigest => sub { $_[0]->bgroup;
-    LookupValue('Alignment')->newRow;
-    beforeEquation();
-    return; },
-  afterDigest => sub {
-    my ($stomach, $whatsit) = @_;
-    #  if($whatsit->getArg(1)->unlist){ # If non-empty row, possibly we'll number
-    # The idea is to avoid numbering an empty rows.... or should we be avoiding the empty rows!?!?!
-    # Some confusion here; some cases latex DOES give you empty, numbered rows (end of ams' align),
-    # Others, it ignores the empty line (\\ optional/ignorable before ams' \intertext)
-    # So, I suspect we should unconditionally do this branch, but work harder at avoiding
-    # empty rows in the first place.
-    afterEquation();
-    return; });
+# DefPrimitiveI('\@equationgroup@close@row', undef, sub { $_[0]->egroup; });
+# DefConstructor('\@equationgroup@open@row SkipSpaces DigestedBody',
+#   "",
+#   reversion => '#1',
+#   beforeDigest => sub { $_[0]->bgroup;
+#     LookupValue('Alignment')->newRow;
+#     beforeEquation();
+#     return; },
+#   afterDigest => sub {
+#     my ($stomach, $whatsit) = @_;
+#     #  if($whatsit->getArg(1)->unlist){ # If non-empty row, possibly we'll number
+#     # The idea is to avoid numbering an empty rows.... or should we be avoiding the empty rows!?!?!
+#     # Some confusion here; some cases latex DOES give you empty, numbered rows (end of ams' align),
+#     # Others, it ignores the empty line (\\ optional/ignorable before ams' \intertext)
+#     # So, I suspect we should unconditionally do this branch, but work harder at avoiding
+#     # empty rows in the first place.
+### NOTE THIS: !
+#     afterEquation();
+#     return; });
+
 # Evolve the above to be a reusuable equationgroup numbering assistant!
 
 # ========================================
@@ -2060,7 +2063,7 @@ DefMacroI('\eqnarray', undef,
     . '\@start@alignment',
   locked => 1);
 DefMacroI('\endeqnarray', undef,
-  '\@finish@alignment\end@eqnarray',
+  '\cr\@finish@alignment\end@eqnarray',
   locked => 1);
 DefMacro('\csname eqnarray*\endcsname',
   '\@eqnarray@bindings\@@eqnarray'
@@ -2074,13 +2077,22 @@ DefMacro('\csname endeqnarray*\endcsname',
 DefPrimitive('\@eqnarray@bindings', sub {
     eqnarrayBindings(); });
 
+DefPrimitiveI('\eqnarray@row@before',undef,sub { beforeEquation(); });
+DefPrimitiveI('\eqnarray@row@after',undef,sub { afterEquation(); });
 sub eqnarrayBindings {
-  my $col1 = { before => Tokens(T_CS('\hfil'), T_MATH, T_CS('\@hidden@bgroup'), T_CS('\displaystyle')),
-    after => Tokens(T_CS('\@hidden@egroup'), T_MATH) };
-  my $col2 = { before => Tokens(T_CS('\hfil'), T_MATH, T_CS('\@hidden@bgroup'), T_CS('\displaystyle')),
-    after => Tokens(T_CS('\@hidden@egroup'), T_MATH, T_CS('\hfil')) };
-  my $col3 = { before => Tokens(T_MATH, T_CS('\@hidden@bgroup'), T_CS('\displaystyle')),
-    after => Tokens(T_CS('\@hidden@egroup'), T_MATH, T_CS('\hfil')) };
+  # my $col1 = { before => Tokens(T_CS('\hfil'), T_MATH, T_CS('\@hidden@bgroup'), T_CS('\displaystyle')),
+  #   after => Tokens(T_CS('\@hidden@egroup'), T_MATH) };
+  # my $col2 = { before => Tokens(T_CS('\hfil'), T_MATH, T_CS('\@hidden@bgroup'), T_CS('\displaystyle')),
+  #   after => Tokens(T_CS('\@hidden@egroup'), T_MATH, T_CS('\hfil')) };
+  # my $col3 = { before => Tokens(T_MATH, T_CS('\@hidden@bgroup'), T_CS('\displaystyle')),
+  #   after => Tokens(T_CS('\@hidden@egroup'), T_MATH, T_CS('\hfil')) };
+
+  my $col1 = { before => Tokens(T_CS('\hfil'), T_MATH, T_CS('\displaystyle')),
+    after => Tokens(T_MATH) };
+  my $col2 = { before => Tokens(T_CS('\hfil'), T_MATH, T_CS('\displaystyle')),
+    after => Tokens(T_MATH, T_CS('\hfil')) };
+  my $col3 = { before => Tokens(T_MATH, T_CS('\displaystyle')),
+    after => Tokens(T_MATH, T_CS('\hfil')) };
 
   my %attributes = (
     'class'  => 'ltx_eqn_eqnarray',
@@ -2106,12 +2118,17 @@ sub eqnarrayBindings {
       closeColumn => sub { $_[0]->closeElement('ltx:_Capture_'); },
       properties => { preserve_structure => 1, attributes => {%attributes} }));
 
-  Let(T_ALIGN,       '\@alignment@align');
+##  Let(T_ALIGN,       '\@alignment@align');
   Let("\\\\",        '\@alignment@newline');
-  Let('\cr',         '\@alignment@cr');
-  Let('\crcr',       '\@alignment@cr');
-  Let('\@open@row',  '\@equationgroup@open@row');
-  Let('\@close@row', '\@equationgroup@close@row');
+##  Let('\cr',         '\@alignment@cr');
+##  Let('\crcr',       '\@alignment@cr');
+##  Let('\@open@row',  '\@equationgroup@open@row');
+##  Let('\@close@row', '\@equationgroup@close@row');
+
+  Let('\@row@before','\eqnarray@row@before');
+  Let('\@row@after','\eqnarray@row@after');
+##  Let("\\\\",        '\cr');    # NOTE: Totally WRONG!!!
+
   return; }
 
 DefConstructor('\@@eqnarray SkipSpaces DigestedBody',
@@ -2196,7 +2213,7 @@ sub rearrangeEqnarray {
         $class = 'new'; }                       # Keep it as separate equation, even though missing LHS
       else {
         $class = 'continue'; } }                # Continues as multiequation
-    else {                                      # 1st & 2nd is empty
+    elsif($$row{R}) {                           # 1st & 2nd is empty, non empty 3rd
       if (!scalar(@eqs)) {                      # But if no previous equation?
         $class = 'odd'; }
       elsif ($numbered && $$row{numbered}       # Separately numbered AND labeled?
@@ -2204,8 +2221,15 @@ sub rearrangeEqnarray {
         $class = 'odd'; }                       # must keep separate, but weird!
       else {
         $class = 'continue'; } }                # Else, continues RHS.
+    else {                                      # All columns empty
+      # Probably the trailling //, but who knows...
+      # Arguably: if it has a number &/or is labelled
+      # we should either prserve (as odd) or move info to previous line (if any)
+      $class = 'remove'; }
 
-    if (($class eq 'new') || ($class eq 'odd')) {
+    if($class eq 'remove'){
+      $document->removeNode($$row{node}); }
+    elsif (($class eq 'new') || ($class eq 'odd')) {
       $numbered = $$row{numbered};
       push(@eqs, [$$row{node}]);
       $oddness++ if $class eq 'odd'; }
@@ -3186,7 +3210,7 @@ sub tabbingBindings {
 
   Let("\\=",       '\@tabbing@tabset');
   Let("\\>",       '\@tabbing@nexttab');
-  Let("\\\\",      '\@tabbing@newline');
+##  Let("\\\\",      '\@tabbing@newline');
   Let('\kill',     '\@tabbing@kill');
   Let("\\+",       '\@tabbing@increment');
   Let("\\-",       '\@tabbing@decrement');
@@ -3196,8 +3220,8 @@ sub tabbingBindings {
   Let('\pushtabs', '\@tabbing@pushtabs');
   Let('\poptabs',  '\@tabbing@poptabs');
   #  Let('\a',        '\@tabbing@accent');
-  Let('\@open@row',  '\default@open@row');
-  Let('\@close@row', '\default@close@row');
+##  Let('\@open@row',  '\default@open@row');
+##  Let('\@close@row', '\default@close@row');
 
   return; }
 
@@ -3241,7 +3265,10 @@ sub tabularBindings {
     if ($str != 1) {
       $properties{attributes}{rowsep} = Dimension(($str - 1) . 'em'); } }
   alignmentBindings($template, 'text', %properties);
-  # Do like AddToMacro, but NOT global!
+  Let("\\\\", '\@alignment@newline');
+  Let('\tabularnewline', "\\\\");
+  # NOTE: Fit this back in!!!!!!!
+  # # Do like AddToMacro, but NOT global!
   foreach my $name ('@row@before', '@row@after', '@column@before', '@column@after') {
     my $cs = '\\' . $name;
     DefMacroI($cs, undef,
@@ -3270,6 +3297,7 @@ DefMacroI('\@tabular@column@after',  undef, '');
 DefMacro('\tabular[]{}', '\@tabular@bindings{#2}[vattach=#1]\@@tabular[#1]{#2}\@start@alignment');
 DefMacroI('\endtabular', undef, '\@finish@alignment\@end@tabular');
 DefPrimitiveI('\@end@tabular', undef, sub { $_[0]->egroup; });
+#DefMacroI('\@end@tabular', undef, undef);
 # Note that the pattern will already have been interpreted by \@tabular@bindings,
 # so make it Undigested here!
 
@@ -3305,7 +3333,9 @@ DefPrimitiveI('\hline', undef, undef);    # Redefined inside tabular
 # However, the really weird thing is the way this provides the } to close the argument
 DefMacroI('\@xhline', undef, '\ifnum0=`{\fi}');
 
-DefConstructor('\cline{}', '',
+#DefConstructor('\cline{}', '',
+DefMacro('\cline{}', '\noalign{\@cline{#1}}');
+DefConstructor('\@cline{}', '',
   afterDigest => sub {
     my ($stomach, $whatsit) = @_;
     my $cols = ToString($whatsit->getArg(1));
@@ -3325,8 +3355,9 @@ DefRegister('\arraycolsep',            Dimension('5pt'));
 DefRegister('\arrayrulewidth',         Dimension('0.4pt'));
 DefRegister('\doublerulesep',          Dimension('2pt'));
 DefMacro('\extracolsep{}', Tokens());
-DefMacroI('\tabularnewline', undef, Tokens());
-
+#DefMacroI('\tabularnewline', undef, Tokens());
+#Let('\tabularnewline', '\cr');
+#DefMacroI('\tabularnewline', undef, '\cr'); # ???
 #======================================================================
 # Array and similar environments
 
@@ -3342,6 +3373,7 @@ DefPrimitive('\@array@bindings [] AlignmentTemplate', sub {
     if ($str != 1) {
       $$attr{rowsep} = Dimension(($str - 1) . 'em'); }
     alignmentBindings($template, 'math', attributes => $attr);
+    Let("\\\\", '\@alignment@newline');
     return; });
 
 DefMacro('\array[]{}',
@@ -4923,7 +4955,9 @@ DefMacro('\@secondoftwo{}{}',    sub { $_[2]; });
 DefMacro('\@thirdofthree{}{}{}', sub { $_[3]; });
 DefMacro('\@expandtwoargs{}{}{}', sub {
     ($_[1]->unlist, T_BEGIN, Expand($_[2])->unlist, T_END, T_BEGIN, Expand($_[3])->unlist, T_END); });
-DefMacro('\@makeother{}', sub { AssignCatcode($_[1] => CC_OTHER, 'local'); });
+DefMacro('\@makeother{}', sub {
+ my $letter = ToString($_[1]); $letter =~ s/^\\//;
+ AssignCatcode($letter => CC_OTHER, 'local'); });
 
 RawTeX(<<'EoTeX');
 {\catcode`\^^M=13 \gdef\obeycr{\catcode`\^^M13 \def^^M{\\\relax}%

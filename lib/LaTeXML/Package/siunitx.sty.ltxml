@@ -1176,10 +1176,15 @@ DefColumnType('S Optional', sub {
     );
     return; });
 
-DefMacro('\lx@si@column@begin Optional XUntil:\@@close@inner@column',
-  '\def\@@eat@space{}\lx@table@si[#1]{#2}\@@close@inner@column');
-DefMacro('\lx@SI@column@begin Optional XUntil:\@@close@inner@column',
-  '\def\@@eat@space{}\lx@table@num[#1]{#2}\@@close@inner@column');
+#DefMacro('\lx@si@column@begin Optional XUntil:\@@close@inner@column',
+#  '\def\@@eat@space{}\lx@table@si[#1]{#2}\@@close@inner@column');
+#DefMacro('\lx@SI@column@begin Optional XUntil:\@@close@inner@column',
+#  '\def\@@eat@space{}\lx@table@num[#1]{#2}\@@close@inner@column');
+
+DefMacro('\lx@si@column@begin Optional XUntil:\@@eat@space',
+  '\def\@@eat@space{}\lx@table@si[#1]{#2}');
+DefMacro('\lx@SI@column@begin Optional XUntil:\@@eat@space',
+  '\def\@@eat@space{}\lx@table@num[#1]{#2}');
 
 # TODO: These two need to deal better with unrecognized arguments.
 # Generally they should NOT be in math mode... (but sometimes, still?)

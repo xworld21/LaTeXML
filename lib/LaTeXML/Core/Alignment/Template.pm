@@ -15,6 +15,7 @@ use warnings;
 use base qw(LaTeXML::Common::Object);
 use LaTeXML::Global;
 use LaTeXML::Common::Object;
+use LaTeXML::Core::Token;
 use LaTeXML::Core::Tokens;
 
 sub new {
@@ -52,9 +53,12 @@ sub addBeforeColumn {
   unshift(@{ $$self{save_before} }, @tokens);    # NOTE: goes all the way to front!
   return; }
 
+# NOTE: \@@eat@space should ONLY be added to LaTeX tabular style templates!!!!
+# NOT \halign style templates!
 sub addAfterColumn {
   my ($self, @tokens) = @_;
-  $$self{current_column}{after} = Tokens(@tokens, @{ $$self{current_column}{after} });
+  $$self{current_column}{after} = Tokens(T_CS('\@@eat@space'),
+                                         @tokens, @{ $$self{current_column}{after} });
   return; }
 
 # Or between this column & next...
@@ -75,7 +79,11 @@ sub addColumn {
   push(@before, $properties{before}->unlist) if $properties{before};
   push(@before, @{ $$self{save_before} })    if $$self{save_before};
   $$col{before}          = Tokens(@before);
-  $$col{after}           = Tokens() unless $properties{after};
+  my @after = ();
+  push(@after,  T_CS('\@@eat@space'));
+  push(@after,  $properties{after}->unlist) if $properties{after};
+  $$col{after}           = Tokens(@after);
+###  $$col{after}           = Tokens() unless $properties{after};
   $$col{thead}           = $properties{thead};
   $$col{empty}           = 1;
   $$self{save_between}   = [];

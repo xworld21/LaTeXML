@@ -106,6 +106,8 @@ sub revert {
       ? $$self{dual_reversion}{$LaTeXML::DUAL_BRANCH}
       : $$self{reversion})) {
     return $saved->unlist; }
+  elsif(my $alignment = $$self{properties}{alignment}) {
+    return $alignment->revert; }
   else {
     my $defn   = $self->getDefinition;
     my $spec   = ($LaTeXML::REVERT_RAW ? undef : $defn->getReversionSpec);

@@ -139,6 +139,13 @@ sub nextColumn {
     $colspec = $$self{current_row}->column($$self{current_column}); }
   return $colspec; }
 
+sub lastColumn {
+  my ($self) = @_;
+  return unless $$self{current_row};
+  my $row = $$self{current_row};
+  $$self{current_column} = scalar @{ $$self{current_row}{columns} };
+  return $$self{current_row}->column($$self{current_column}); }
+
 sub currentColumnNumber {
   my ($self) = @_;
   return $$self{current_column}; }
@@ -166,6 +173,49 @@ sub addAfterRow {
   $$self{current_row}{after} = [@{ $$self{current_row}{after} || [] }, @boxes];
   return; }
 
+sub omitColumn {
+  my ($self) = @_;
+  if (my $column = $self->currentColumn) {
+    $$column{omitted} = 1; }
+  return; }
+
+sub omitNextColumn {
+  my ($self) = @_;
+  if (my $column = $$self{current_row} && $$self{current_row}->column($$self{current_column} + 1)) {
+    $$column{omitted} = 1; }
+  return; }
+
+sub getColumnBefore {
+  my ($self) = @_;
+  my $column;
+  if (($column = $self->currentColumn) && !$$column{omitted}) {
+    #print STDERR "COLUMN FETCH BEFORE\n";
+    return Tokens(
+      #T_BEGIN,
+      T_CS('\bgroup'),
+      #T_CS('\@hidden@bgroup'),
+      #T_CS('\begingroup'),
+      T_CS('\@column@before'), @{ $$column{before} }); }
+  else {
+    #print STDERR "COLUMN FETCH BEFORE Omitted\n";
+    return Tokens(); } }
+
+sub getColumnAfter {
+  my ($self) = @_;
+  my $column;
+  if (($column = $self->currentColumn) && !$$column{omitted}) {
+    #print STDERR "COLUMN FETCH AFTER\n";
+    # Possible \@@eat@space ??? (if LaTeX style???)
+    return Tokens(@{ $$column{after} }, T_CS('\@column@after')
+        #,T_CS('\endgroup')
+        #,T_CS('\@hidden@egroup')
+      , T_CS('\egroup')
+        #,T_END
+    ); }
+  else {
+    #print STDERR "COLUMN FETCH AFTER Omitted\n";
+    return Tokens(); } }
+
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # Making the Alignment act like a Whatsit
 sub toString {
@@ -177,9 +227,17 @@ sub stringify {
   my ($self) = @_;
   return "Alignment[]"; }
 
-sub revert {
+sub XXXXXrevert {
   my ($self) = @_;
   return $self->getBody->revert; }
+
+sub revert {
+  my ($self) = @_;
+  return $$self{reversion}->unlist; }
+
+sub setReversion {
+  my ($self,$tokens) = @_;
+  $$self{reversion} = $tokens; }
 
 sub computeSize_internal {
   my ($self) = @_;
@@ -210,15 +268,15 @@ sub computeSize_internal {
       else { }    # Ditto spanned rows
     }
     push(@rowheights, $rowh + $rowd + 0.5 * $base); }    # somehow our heights are way too short????
-  return ([@rowheights],[@colwidths]); }
+  return ([@rowheights], [@colwidths]); }
 
 sub computeSize {
-  my ($self, %options) = @_;
+  my ($self,       %options)   = @_;
   my ($rowheights, $colwidths) = $self->computeSize_internal();
-  my $props      = $self->getPropertiesRef;
-  my $ww = Dimension(sum(@$colwidths));
-  my $hh = Dimension(sum(@$rowheights));
-  my $dd = Dimension(0);
+  my $props = $self->getPropertiesRef;
+  my $ww    = Dimension(sum(@$colwidths));
+  my $hh    = Dimension(sum(@$rowheights));
+  my $dd    = Dimension(0);
   $$props{width}  = $ww unless defined $$props{width};
   $$props{height} = $hh unless defined $$props{height};
   $$props{depth}  = $dd unless defined $$props{depth};
@@ -247,7 +305,7 @@ sub beAbsorbed {
       $border =~ s/(.) \1/$1$1/g;
       my $empty = !$$cell{boxes} || !scalar($$cell{boxes}->unlist);
       $$cell{cell} = &{ $$self{openColumn} }($document,
-        align => $$cell{align}, width => $$cell{width},
+        align   => $$cell{align}, width => $$cell{width},
         vattach => $$cell{vattach},
         (($$cell{colspan} || 1) != 1 ? (colspan => $$cell{colspan}) : ()),
         (($$cell{rowspan} || 1) != 1 ? (rowspan => $$cell{rowspan}) : ()),
@@ -303,7 +361,7 @@ sub beAbsorbed {
 sub normalizeAlignment {
   my ($self) = @_;
   return if $$self{normalized};
-  my $ismath = $$self{isMath};
+  my $ismath   = $$self{isMath};
   my $preserve = $$self{isMath} || $self->getProperty('preserve_structure');
 
   my @rows = @{ $$self{rows} };
@@ -324,7 +382,7 @@ sub normalizeAlignment {
             $$col{rowspan} = $nr; } } }      # copy rowspan to initial column
       if (($nr = $$col{rowspan} || 1) > 1) {    # If this column spans rows
         my $nr_orig = $nr;
-        my $nc = $$col{colspan} || 1;
+        my $nc      = $$col{colspan} || 1;
         # Mark all spanned columns in following rows as skipped.
         for (my $ii = $i + 1 ; $ii < $i + $nr ; $ii++) {
           # Prescan the columns to make sure they're empty!
