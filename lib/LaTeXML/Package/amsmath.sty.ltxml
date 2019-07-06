@@ -90,6 +90,9 @@ DefMacroI('\@ams@newline', undef, sub {
     else {
       (T_CS('\@alignment@newline@noskip'), $next); } });
 
+##?????
+#DefMacroI('\@ams@newline', undef, '\cr');
+
 # Note that most of ams's alignment environments originate in AmSTeX.
 # To make \begin{foo}...\end{foo} also work as \foo...\endfoo within AmSTeX.pool,
 # we're wrapping an extra \@hidden@bgroup ... \@hidden@egroup around the
@@ -119,9 +122,11 @@ sub amsalignBindings {
       properties => {%properties}));
   Let(T_ALIGN,       '\@alignment@align');
   Let("\\\\",        '\@ams@newline');
-  Let('\cr',         '\@alignment@cr');
-  Let('\@open@row',  '\@equationgroup@open@row');
-  Let('\@close@row', '\@equationgroup@close@row');
+#  Let('\cr',         '\@alignment@cr');
+##  Let('\@open@row',  '\@equationgroup@open@row');
+##  Let('\@close@row', '\@equationgroup@close@row');
+  Let('\@row@before','\eqnarray@row@before');
+  Let('\@row@after','\eqnarray@row@after');
   Let('\intertext',  '\@ams@intertext');
   return; }
 

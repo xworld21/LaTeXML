@@ -37,15 +37,16 @@ DefConstructor('\@@CD DigestedBody',
   beforeDigest => sub {
     $_[0]->bgroup;
     alignmentBindings(MatrixTemplate(), 'math', attributes => { meaning => 'commutative-diagram' });
-    Let(T_ALIGN, '\@cd@invisible@align');
+#    Let(T_ALIGN, '\@cd@invisible@align');
     Let("\\\\",  '\@alignment@newline@noskip');
     $STATE->assignMathcode('@' => 0x8000);
     Let('@', '\cd@'); },
   reversion => '\begin{CD}#1\end{CD}');
 
-DefMacroI('\@cd@invisible@align', undef,
-  '\@close@inner@column\@close@column'
-    . '\@open@column\@open@inner@column');
+#DefMacroI('\@cd@invisible@align', undef,
+#  '\@close@inner@column\@close@column'
+#    . '\@open@column\@open@inner@column');
+
 #DefConstructorI('\@alignment@align@marker',undef,'',reversion=>'&');
 
 DefMacro('\cd@ Token', sub {

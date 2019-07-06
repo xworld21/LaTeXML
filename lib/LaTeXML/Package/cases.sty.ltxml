@@ -104,9 +104,11 @@ sub numcasesBindings {
   DefMacroI('\@numcases@LHS', undef, Tokens($lhs, T_ALIGN));
   Let(T_ALIGN,       '\@alignment@align');
   Let("\\\\",        '\@numcases@newline');
-  Let('\cr',         '\@numcasest@cr');
-  Let('\@open@row',  '\@equationgroup@open@row');
-  Let('\@close@row', '\@equationgroup@close@row');
+##  Let('\cr',         '\@numcasest@cr');
+##  Let('\@open@row',  '\@equationgroup@open@row');
+##  Let('\@close@row', '\@equationgroup@close@row');
+  Let('\@row@before','\eqnarray@row@before');
+  Let('\@row@after','\eqnarray@row@after');
   return; }
 
 DefMacro('\@numcases@newline[]',
