@@ -3321,14 +3321,14 @@ sub digestAlignmentBody {
   my $alignment = LookupValue('Alignment');
   $whatsit->setProperty(alignment => $alignment);
   $alignment->setBody($whatsit);
-#  $whatsit->setBody($alignment);
+  #  $whatsit->setBody($alignment);
   my $needrow = 1;
 ##  $alignment->newRow;
 ##  Digest(T_CS('\@row@before'));
 ##  AssignValue(alignmentStartColumn => $alignment->currentColumnNumber);
   print STDERR "BODY Processing...\n" if $DEBUG_COLUMN;
   my $lastwascr = undef;
-  my @body=();
+  my @body      = ();
   while (1) {
     print STDERR "BODY looking for cell\n" if $DEBUG_COLUMN;
 ##    Digest(T_CS('\@column@before'));
@@ -3344,7 +3344,7 @@ sub digestAlignmentBody {
     if ($next && Equals($next, T_CS('\span'))) {
       # actually: keep $cell and combine with the coming one!
       next; }
-    push(@body,$cell->revert,$next);
+    push(@body, $cell->revert, $next);
     extractAlignmentColumn($alignment, $cell);
     if (!$next) {
       print STDERR "BODY ending\n" if $DEBUG_COLUMN;
@@ -3392,7 +3392,7 @@ sub digestAlignmentBody {
   }
   $alignment->setReversion(Tokens(@body));
   print STDERR "BODY DONE!\n" if $DEBUG_COLUMN;
-}
+  return; }
 
 # Read & digest an alignment column's data,
 # accommodating the current template and any special cs's
@@ -3638,7 +3638,7 @@ sub extractAlignmentColumn {
     my $c = $alignment->getColumn($i);
     $$c{skipped} = 1 if $c; }
   print STDERR "INSTALL column " . join(',', map { $_ . "=" . ToString($$colspec{$_}); } sort keys %$colspec) . "\n" if $DEBUG_COLUMN;
-  $boxes; }
+  return $boxes; }
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # Cleanup the pre & post tokens for halign columns in math mode.
