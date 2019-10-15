@@ -1154,8 +1154,10 @@ DefMacro('\lx@six@highlight{}', '\lx@six@unitobject@arg{highlight}{#1}');
 DefColumnType('s Optional', sub {
     my ($gullet, $kv) = @_;
     $LaTeXML::BUILD_TEMPLATE->addColumn(
-      before => Tokens(T_CS('\lx@sicolumn@begin'), ($kv ? (T_OTHER('['), $kv, T_OTHER(']')) : ()), T_LETTER("sismall")),
-      #      after => Tokens(T_CS('\lx@si@column@end')),
+      before => Tokens(T_BEGIN,
+        T_CS('\lx@si@column@prep'), ($kv ? (T_OTHER('['), $kv, T_OTHER(']')) : ()),
+        T_CS('\lx@si@column@parse')),
+      after => Tokens(T_CS('\lx@si@column@end'), T_END),
       #      align => 'char:' . ToString(Digest(T_CS('\nprt@decimal')))
     );
     return; });
@@ -1163,30 +1165,31 @@ DefColumnType('s Optional', sub {
 DefColumnType('S Optional', sub {
     my ($gullet, $kv) = @_;
     $LaTeXML::BUILD_TEMPLATE->addColumn(
-      before => Tokens(T_CS('\lx@sicolumn@begin'), ($kv ? (T_OTHER('['), $kv, T_OTHER(']')) : ()), T_LETTER("SILARGE")),
-      #      after => Tokens(T_CS('\lx@SI@column@end')),
+      before => Tokens(T_BEGIN,
+        T_CS('\lx@si@column@prep'), ($kv ? (T_OTHER('['), $kv, T_OTHER(']')) : ()),
+        T_CS('\lx@SI@column@parse')),
+      after => Tokens(T_CS('\lx@si@column@end'), T_END),
       #      align => 'char:' . ToString(Digest(T_CS('\nprt@decimal'))));
     );
     return; });
 
-#DefMacro('\lx@si@column@begin Optional XUntil:\@@close@inner@column',
-#  '\def\@@eat@space{}\lx@table@si[#1]{#2}\@@close@inner@column');
-#DefMacro('\lx@SI@column@begin Optional XUntil:\@@close@inner@column',
-#  '\def\@@eat@space{}\lx@table@num[#1]{#2}\@@close@inner@column');
+DefMacro('\lx@si@column@prep OptionalKeyVals:SIX', sub {
+    my ($gullet, $kv) = @_;
+    six_parse_begin($gullet, $kv);
+    six_enableUnitMacros(1);
+    return; });
 
-DefMacro('\lx@si@column@begin Optional XUntil:\@@eat@space',
-  '\def\@@eat@space{}\lx@table@si[#1]{#2}');
-DefMacro('\lx@SI@column@begin Optional XUntil:\@@eat@space',
-  '\def\@@eat@space{}\lx@table@num[#1]{#2}');
-
+DefPrimitive('\lx@si@column@end', '');
 # TODO: These two need to deal better with unrecognized arguments.
 # Generally they should NOT be in math mode... (but sometimes, still?)
 
 # Similar to \num, no error...
 # color treated a bit differently?
-DefMacro('\lx@table@num {}', sub {
+
+DefMacro('\lx@SI@column@parse XUntil:\lx@si@column@end', sub {
     my ($gullet, $number) = @_;
-    my @tokens  = Expand($number)->unlist;
+###print STDERR "COLUMN S [".ToString($kv)."] : ".ToString($number)."\n";
+    my @tokens  = $number->unlist;
     my $doparse = six_getBool('parse-numbers');
     # Deal with recognizing "surrounding material"
     my @pre   = ();
@@ -1207,6 +1210,7 @@ DefMacro('\lx@table@num {}', sub {
         push(@pre, T_BEGIN, $p, T_END); }
       else {
         last; } }
+    #    six_parse_begin($gullet, $kv);
     if ($doparse) {
       my $tokens = [six_combine(@tokens)];
       my $parsed = six_parse_number($tokens);
@@ -1218,14 +1222,21 @@ DefMacro('\lx@table@num {}', sub {
       push(@pre, T_BEGIN, T_CS('\color'), T_BEGIN, $color, T_END);
       unshift(@post, T_END); }
     six_parse_end();
+    # print "COLUMN:"
+    # ." pre: ".ToString(Tokens(@pre))
+    # ." conent: ".ToString($result)
+    # ." post: ".ToString(Tokens(@post))
+    # ."\n";
     return Tokens(@pre,
       ($result ? six_wrap($result) : ()),
       @post); });
 
 # similar to \si
-DefMacro('\lx@table@si {}', sub {
+DefMacro('\lx@si@column@parse XUntil:\lx@si@column@end', sub {
     my ($gullet, $units) = @_;
-    my @tokens = Expand($units)->unlist;
+    #print STDERR "ATTEMPT ".Stringify($units)."\n";
+
+    my @tokens = $units->unlist;
     my @pre    = ();
     my @post   = ();
     my $color  = six_get('color');
@@ -1241,12 +1252,14 @@ DefMacro('\lx@table@si {}', sub {
         push(@pre, T_BEGIN, $p, T_END); }
       else {
         last; } }
+    pop(@tokens) if @tokens && Equals($tokens[-1], T_CS('\@@eat@space'));
     if (my $defns = six_convertUnits(Tokens(@tokens))) {
       $result = six_format_units(six_parse_units($defns)); }
     else {
 ##      Info('unexpected', 'whatever', undef,
 ##           "Don't yet know how to parse non-macro unit expressions");
       $result = Tokens(@tokens); }
+    #print STDERR "==> ".Stringify($result)."\n";
     if ($color) {
       unshift(@pre, T_BEGIN, T_CS('\color'), T_BEGIN, $color, T_END);    # outside!!!
       push(@post, T_END); }

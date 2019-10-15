@@ -101,15 +101,20 @@ sub revert {
   # (1) provide a means to get the RAW, internal markup that can (hopefully) be RE-digested
   #     this is needed for getting the numerator of \over into textstyle!
   # (2) caching the reversion (which is a big performance boost)
+  my $defn = $self->getDefinition;
+  my $alignment;
   if (my $saved = !$LaTeXML::REVERT_RAW
     && ($LaTeXML::DUAL_BRANCH
       ? $$self{dual_reversion}{$LaTeXML::DUAL_BRANCH}
       : $$self{reversion})) {
     return $saved->unlist; }
-  elsif(my $alignment = $$self{properties}{alignment}) {
+##  elsif($alignment = $$self{properties}{alignment}) {
+  elsif ((!$defn->getReversionSpec)
+    && ($alignment = $$self{properties}{alignment})) {
+    print STDERR "REVERT ALIGNMENT for " . Stringify($defn)
+      . "(" . $defn->getReversionSpec . "): $alignment\n";
     return $alignment->revert; }
   else {
-    my $defn   = $self->getDefinition;
     my $spec   = ($LaTeXML::REVERT_RAW ? undef : $defn->getReversionSpec);
     my @tokens = ();
     if ((defined $spec) && (ref $spec eq 'CODE')) {    # If handled by CODE, call it
@@ -127,6 +132,7 @@ sub revert {
         if (my $parameters = $defn->getParameters) {
           push(@tokens, $parameters->revertArguments($self->getArgs)); } }
       if (defined(my $body = $self->getBody)) {
+###      if (defined(my $body = $self->getBody || $self->getProperty('alignment'))) {
         push(@tokens, Revert($body));
         if (defined(my $trailer = $self->getTrailer)) {
           push(@tokens, Revert($trailer)); } } }
@@ -173,7 +179,7 @@ sub beAbsorbed {
   # Significant time is consumed here, and associated with a specific CS,
   # so we should be profiling as well!
   # Hopefully the csname is the same that was charged in the digestioned phase!
-  my $defn = $self->getDefinition;
+  my $defn     = $self->getDefinition;
   my $profiled = $STATE->lookupValue('PROFILING') && $defn->getCS;
   LaTeXML::Core::Definition::startProfiling($profiled, 'absorb') if $profiled;
   my @result = $defn->doAbsorbtion($document, $self);

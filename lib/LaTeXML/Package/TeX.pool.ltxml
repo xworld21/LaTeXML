@@ -2392,14 +2392,16 @@ DefColumnType('r', sub {
 # and it handles $ and & appropriately
 DefConstructor('\tabularcell@hbox HBoxContents',
   "#1",
-  mode => 'text', bounded => 1,
+  mode      => 'text', bounded => 1,
+  reversion => '#1',
   # Workaround for $ in alignment; an explicit \hbox gives us a normal $.
   # And also things like \centerline that will end up bumping up to block level!
+  properties   => sub { (body => $_[1]); },    # so column reversion unwraps this.
   beforeDigest => sub {
     ## reenterTextMode();  # BUT NOT \\\\ !!!!!!
     Let(T_MATH,        '\@dollar@in@textmode');
     Let('\centerline', '\relax'); },
-  afterConstruct => sub {    # Override nowrap on right,left,center cells
+  afterConstruct => sub {                      # Override nowrap on right,left,center cells
     my $cell = $_[0]->getElement;
     $_[0]->addClass($cell, 'ltx_wrap') unless ($cell->getAttribute('align') || '') eq 'justify'; });
 
@@ -2423,94 +2425,38 @@ DefColumnType('@{}', sub {
 # This is where ALL(?) alignments start & finish
 # \@open@alignment will be the object representing the entire alignment!
 DefMacroI('\@start@alignment', undef,
-####  '\@open@alignment\@open@row\@open@column\@open@inner@column');
   '\@open@alignment');
 DefMacroI('\@finish@alignment', undef,
-####  '\@close@inner@column\@close@column\@close@row\@close@alignment');
-###  '\cr\@close@inner@column\@close@column\@close@row\@close@alignment');
-  '\crcr\@close@alignment');
-#----------------------------------------------------------------------
-# These are to be bound to &, \span, \cr and \\
-# The macro layer expands into appropriate begin & end markers for rows & columns;
-# The constructor layer carries out any side effect and records a token for reversion.
-# DefMacroI('\@alignment@align', undef,
-#   '\@close@inner@column\@close@column'
-#     . '\@alignment@align@marker'
-#     . '\@open@column\@open@inner@column');
-# DefConstructorI('\@alignment@align@marker', undef, '', reversion => '&',
-#   afterDigest => sub {
-#     if (my $alignment = LookupValue('Alignment')) {
-#       $$alignment{in_column} = 0; }
-#     return; }
-# );
+  '\hidden@crcr\@close@alignment');
 
-#DefMacro('\@alignment@span',
-# DefMacroI('\span', undef,
-#   '\@close@inner@column'
-#     . '\@alignment@span@marker'
-#     . '\@open@inner@column');
-DefConstructorI('\@alignment@span@marker', undef, '', reversion => '\span',
-  sizer      => 0,
-  properties => { alignmentSkippable => 1 });
-
-# DefConstructorI('\omit', undef, '', properties => { alignmentSkippable => 1 });
-
-# DefMacroI('\@alignment@cr', undef, sub {
-#     my ($gullet) = @_;
-#     my $t = $gullet->readXNonSpace;
-#     $gullet->unread($t);
-#     # SPECIAL CASE for endings of \halign (& friends).
-#     # We need the appropriate ending, to close the row/col/etc, but only see a }!!
-#     if (Equals($t, T_END) || Equals($t, T_CS('\egroup'))) {    # Ending an \halign?
-#       (T_CS('\@finish@alignment')); }
-#     else {
-#       (T_CS('\@close@inner@column'), T_CS('\@close@column'), T_CS('\@close@row'),
-#         T_CS('\@alignment@cr@marker'),
-#         T_CS('\@open@row'), T_CS('\@open@column'), T_CS('\@open@inner@column')); } });
-
-# DefConstructorI('\@alignment@cr@marker', undef, '', reversion => '\cr');
-# DefConstructorI('\default@cr', undef, "\n");                   # Default binding.
-# Let('\cr',   '\default@cr');
-# Let('\crcr', '\cr');
-DefConstructorI('\cr',   undef, "\n");    # Default binding.
-DefConstructorI('\crcr', undef, "\n");    # Default binding.
+DefConstructorI('\cr',           undef, "\n");                 # Default binding.
+DefConstructorI('\crcr',         undef, "\n");                 # Default binding.
+DefConstructorI('\hidden@cr',    undef, "\n", alias => '');    # Default binding.
+DefConstructorI('\hidden@crcr',  undef, "\n", alias => '');    # Default binding.
+DefConstructorI('\hidden@align', undef, "", alias => '');      # Default binding.
 
 # NOTE that this does NOT skip spaces before * or []!!!!!
 #  As if: \@alignment@newline OptionalMatch:* [Dimension]
+# Read arguments for \\, namely * and/or [Dimension]
+# BUT optionally do it while skipping spaces (latex style) or not (ams style)
 sub readNewlineArgs {
-  my ($gullet) = @_;
+  my ($gullet, $skipspaces) = @_;
+  my $alignment = $STATE->lookupValue('Alignment');
+  my $prevstate = $$alignment{align_state};
+  $$alignment{align_state} = 1000000;    # Temporarily disable & triggering the template.
+  $gullet->skipSpaces if $skipspaces;
   my $next = $gullet->readToken;
   my ($star, $optional);
   if ($next && $next->equals(T_OTHER('*'))) {
     $star = 1;
+    $gullet->skipSpaces if $skipspaces;
     $next = $gullet->readToken; }
   if ($next && $next->equals(T_OTHER('['))) {
     $optional = $gullet->readUntil(T_OTHER(']'));
     $next     = undef; }
   $gullet->unread($next) if $next;
+  $$alignment{align_state} = $prevstate;
   return ($star, $optional); }
-
-DefMacro('\@hidden@cr', '');
-# The next two macros are for binding to \\
-# one version does NOT skip spaces (esp. newline!) before * and []; the other DOES
-# We need to be careful which one is used in which place.
-# [LaTeX's tabular, eqnarray DO skip;
-# some (all?) ams environments do NOT skip]
-# What about halign? What should be the default?
-# DefMacroI('\@alignment@newline@noskip', undef, sub {
-#     my ($gullet) = @_;
-#     readNewlineArgs($gullet);
-#     (T_CS('\@hidden@cr'),
-#       T_CS('\@close@inner@column'), T_CS('\@close@column'), T_CS('\@close@row'),
-#       T_CS('\@alignment@newline@marker'),
-#       T_CS('\@open@row'), T_CS('\@open@column'), T_CS('\@open@inner@column')); });
-
-# DefMacro('\@alignment@newline OptionalMatch:* [Dimension]', sub {
-#     my ($gullet) = @_;
-#     (T_CS('\@hidden@cr'),
-#       T_CS('\@close@inner@column'), T_CS('\@close@column'), T_CS('\@close@row'),
-#       T_CS('\@alignment@newline@marker'),
-#       T_CS('\@open@row'), T_CS('\@open@column'), T_CS('\@open@inner@column')); });
 
 DefMacroI('\@alignment@newline@noskip', undef, sub {
     my ($gullet) = @_;
@@ -2537,6 +2483,32 @@ DefMacro('\@alignment@newline', sub {
     my ($star, $optional) = readNewlineArgs($gullet);
     AssignValue(Alignment => $alignment);
     (T_CS('\cr')); });
+# TENTATIVE: See warning comments above.
+# This needs to be recognized like a \cr in gullet & alignment code!!!
+DefConstructor('\@alignment@newline OptionalMatch:* [Dimension]', "\n",
+  #               reversion=>"\\\\\n"
+  reversion => Tokens(T_CS('\\\\'), Token("\n", CC_SPACE))
+);
+
+####DefMacro('\@alignment@newline OptionalMatch:* [Dimension]',
+DefMacro('\@alignment@newline',
+##         '\hidden@cr\@alignment@newline@marker');
+##         '\hidden@cr');
+####  '\hidden@cr\hidden@noalign{\@alignment@newline@marker}');
+######  '\hidden@noalign{\@alignment@newline@marker}\hidden@cr');
+  '\hidden@cr{\@alignment@newline@marker}');
+
+DefMacroI('\@alignment@newline@noskip', undef, sub {
+    my ($gullet) = @_;
+    readNewlineArgs($gullet);
+    return (T_CS('\hidden@cr'), T_BEGIN, T_CS('\@alignment@newline@marker'), T_END); });
+#    (T_CS('\cr')); });
+
+DefMacroI('\@alignment@newline', undef, sub {
+    my ($gullet) = @_;
+    readNewlineArgs($gullet, 1);
+    return (T_CS('\hidden@cr'), T_BEGIN, T_CS('\@alignment@newline@marker'), T_END); });
+#    (T_CS('\cr')); });
 
 DefConstructorI('\@alignment@newline@marker', undef, '', reversion => Tokens(T_CS("\\\\"), T_CR),
   afterDigest => sub {
@@ -2545,12 +2517,23 @@ DefConstructorI('\@alignment@newline@marker', undef, '', reversion => Tokens(T_C
     return; }
 );
 
-# DefConstructorI('\@alignment@hline', undef, '',
-#   afterDigest => sub {
-#     if (my $alignment = LookupValue('Alignment')) {
-#       $alignment->addLine('t'); } },
-#   properties => { isHorizontalRule => 1 },
-#   alias => '\hline');
+# Handled directly in alignments, but must be defined
+DefPrimitiveI('\noalign', undef, sub {
+    Error('unexpected', '\noalign', $_[0],
+      "\\noalign cannot be used here");
+    return; });
+# Or? No, I guess not...
+####DefMacro('\noalign Expanded','#1');
+DefPrimitiveI('\hidden@noalign', undef);
+
+DefPrimitiveI('\omit', undef, sub {
+    Error('unexpected', '\omit', $_[0],
+      "\\omit cannot be used here");
+    return; });
+DefPrimitiveI('\span', undef, sub {
+    Error('unexpected', '\span', $_[0],
+      "\\span cannot be used here");
+    return; });
 
 DefMacro('\@alignment@hline', '\noalign{\@@alignment@hline}');
 DefConstructorI('\@@alignment@hline', undef, '',
@@ -2609,50 +2592,6 @@ DefConstructorI('\@@ENDINLINETEXT', undef, "", alias => '$',
 
 DefPrimitiveI('\@LTX@nonumber', undef, sub { AssignValue(EQUATIONROW_NUMBER => 0, 'global'); });
 
-# \noalign{} provides vertical material that doesn't get aligned.
-# This could be a bunch of text that would be treated like AMS' \intertext,
-# OR (more commonly) it might be  more or less empty, \vspace,\hline etc.
-# In the latter case, we DON'T want the tr/td even with colspan!!!
-# Unfortunately, the timing is wrong to remove them (until ALignment is processing)
-# MOREOVER, there're odd cases (\displaylines) where we apparently should be in an alignment,
-# but aren't, so more punting is in order!
-# Note that \no align processes (at least expands) it's argument as it reads it;
-# See the peculiar construct in LaTeX for \hline and \@xhline
-
-# Since this is a non-LaTeXy sorta thing, better end with \cr, not \\
-## Really, this needs to be handled within the halign reader, right?
-##DefMacro('\noalign Expanded',
-##  '\if@in@alignment'
-##    . '\@multicolumn{\@alignment@ncolumns}{l}{\@@LTX@noalign{#1}}\@LTX@nonumber\@alignment@cr'
-##    . '\else#1\fi');
-
-# This just processes the argument in text mode, but notices whether it is "empty" or not.
-# If so, tell the current row that it can safely be collapsed later on.
-DefConstructor('\@@LTX@noalign{}', sub {
-    my ($document, $body) = @_;
-    # Open an ltx:p, if allowed, otherwise just ltx:text
-    $document->insertElement(($document->isOpenable('ltx:p') ? 'ltx:p' : 'ltx:text'),
-      $body, class => 'ltx_intertext'); },
-  mode        => 'text',
-  afterDigest => sub {
-    my ($stomach, $whatsit) = @_;
-    my $empty = 1;
-    # Check if this really deserves a paragraph
-    foreach my $box ($whatsit->getArg(1)->unlist) {
-      if    ($box->getProperty('isFill'))             { }
-      elsif ($box->getProperty('isVerticalRule'))     { }
-      elsif ($box->getProperty('isHorizontalRule'))   { }    # we need to put this somewhere?
-      elsif ($box->getProperty('alignmentSkippable')) { }
-      elsif (ref $box eq 'LaTeXML::Core::Comment')    { }
-      elsif ($box->getProperty('isSpace'))            { }
-      elsif (IsEmpty($box))                           { }
-      else {
-        $empty = 0; last; } }
-    if (my $alignment = LookupValue('Alignment')) {
-      $alignment->currentRow->{empty} = $empty; }
-    $whatsit->setProperty(alignmentSkippable => $empty);
-    return; });
-
 DefMacroI('\hidewidth', undef, Tokens());
 
 DefMacro('\multispan{Number}', sub {
@@ -2685,53 +2624,6 @@ DefMacro('\@multicolumn {Number}  AlignmentTemplate {}', sub {
 
 DefConditionalI('\if@in@alignment', undef, sub { LookupValue('Alignment'); });
 
-# This is the primary idiom for creating Alignment structures
-# (\halign, tabular, matrix, even eqnarray)
-# Along with Let bindings that redefine various things inside the body,
-# the important thing is to create an Alignment object (a specialized Whatsit).
-# Unlike other Whatsits, we need to bind it in STATE as Alignment
-# so that we can get access to it, setting rows, columns, borders, ...
-# Also, it holds bits of code which are Constructor analogs,
-# responsible for opening & closing the elements for container, rows & columns.
-#
-# A typical alignment would be defined as a macro like:
-#   \foo{} ==> \@@foo{\@start@alignment#1\@finish@alignment}
-# where \@@foo is a constructor with '#1' as the pattern.
-# To create the actual Alignment object, \@@foo should invokes
-# alignmentBindings in beforeDigest, or perhaps put
-# a CS similar to \@alignment@bindings before \@start@alignment.
-# Obviously a bit more involved for environments, but similar.
-# sub alignmentBindings {
-#   my ($template, $mode, %properties) = @_;
-#   $mode = LookupValue('MODE') unless $mode;
-#   my $ismath    = $mode =~ /math$/;
-#   my $container = ($ismath ? 'ltx:XMArray' : 'ltx:tabular');
-#   my $rowtype   = ($ismath ? 'ltx:XMRow' : 'ltx:tr');
-#   my $coltype   = ($ismath ? 'ltx:XMCell' : 'ltx:td');
-#   AssignValue(Alignment => LaTeXML::Core::Alignment->new(
-#       template       => $template,
-#       openContainer  => sub { $_[0]->openElement($container, @_[1 .. $#_]); },
-#       closeContainer => sub { $_[0]->closeElement($container); },
-#       openRow        => sub { $_[0]->openElement($rowtype, @_[1 .. $#_]); },
-#       closeRow       => sub { $_[0]->closeElement($rowtype); },
-#       openColumn     => sub { $_[0]->openElement($coltype, @_[1 .. $#_]); },
-#       closeColumn    => sub { $_[0]->closeElement($coltype); },
-#       isMath         => $ismath,
-#       properties     => {%properties}));
-# ##  Let(T_ALIGN,           '\@alignment@align');
-# #  Let("\\\\", '\@alignment@newline');
-#   Let("\\\\", '\cr');
-# ##  Let('\tabularnewline', '\@alignment@newline');
-# ##  Let('\tabularnewline', '\cr');
-# ##  Let('\cr',             '\@alignment@cr');
-# ##  Let('\crcr',           '\@alignment@cr');
-#   Let('\hline', '\@alignment@hline');
-#   Let(T_MATH, ($ismath ? '\@dollar@in@mathmode' : '\@dollar@in@textmode'));
-# ##  Let('\@open@row',  '\default@open@row');
-# ##  Let('\@close@row', '\default@close@row');
-
-#   return; }
-
 DefMacroI('\tabularnewline', undef, '\cr');    # ???
 
 DefPrimitive('\@alignment@bindings AlignmentTemplate []', sub {
@@ -2747,71 +2639,6 @@ sub translateAttachment {
   $pos = ($pos ? ToString($pos) : '');
   return ($pos eq 't' ? 'top' : ($pos eq 'b' ? 'bottom' : 'middle')); }    # undef meaning 'baseline'
 
-#----------------------------------------------------------------------
-# To recognize where rows & columns start and stop, we need to
-# recognize things that have expanded into &, \cr, etc.
-# Additionally, \span creates a single column out of several.
-
-# #----------------------------------------------------------------------
-# # Overall Alignment;
-#DefPrimitive('\@close@alignment', sub { $_[0]->egroup; });
-# # This makes the Alignment object act as if it were the Whatsit.
-# # ie. the alignment gets absorbed into the document, is sized, etc.
-# # But it still reverts to whatever stuff was digested.
-# DefConstructor('\@open@alignment SkipSpaces DigestedBody',
-#   "#alignment",
-#   reversion    => '#1',
-#   sizer        => '#alignment',
-#   beforeDigest => sub { $_[0]->bgroup; },
-#   afterDigest  => sub {
-#     my ($stomach, $whatsit) = @_;
-#     if (my $alignment = LookupValue('Alignment')) {
-#       $whatsit->setProperty(alignment => $alignment);
-#       $alignment->setBody($whatsit); }
-#     return; });
-
-# #----------------------------------------------------------------------
-# # Row; The content is stuffed into the Alignment, so we don't construct anything here.
-# ##DefMacroI('\default@close@row',undef,'\@row@after\@@default@close@row');
-# ##DefMacroI('\default@open@row',undef,'\@@default@open@row\@row@before');
-# DefMacroI('\default@close@row', undef, '\@@default@close@row');
-# DefMacroI('\default@open@row',  undef, '\@@default@open@row');
-# DefMacroI('\@row@before',       undef, '');
-# DefMacroI('\@row@after',        undef, '');
-
-# DefPrimitive('\@@default@close@row', sub {
-#     if (my $alignment = LookupValue('Alignment')) {
-#       $alignment->addAfterRow(Digest(T_CS('\@row@after'))); }
-#     $_[0]->egroup; });
-# DefConstructor('\@@default@open@row SkipSpaces DigestedBody',
-#   "",
-#   reversion    => '#1',
-#   beforeDigest => sub {
-#     $_[0]->bgroup;
-#     if (my $alignment = LookupValue('Alignment')) {
-#       $alignment->newRow;
-#       $alignment->addBeforeRow(Digest(T_CS('\@row@before'))); }
-#     return; });
-
-# #----------------------------------------------------------------------
-# # Column
-# # Here, a column represents 1 or more "inner columns".
-# # inner columns can be separated by \span's yielding a single column with
-# # colspan > 1. Also, inner columns recognize \omit which removes the
-# # before & after tokens which would otherwise wrap the inner column.
-
-#DefPrimitiveI('\@tabular@begin@heading', undef, sub { AssignValue(IN_TABULAR_HEAD => 1, 'global'); });
-#DefPrimitiveI('\@tabular@end@heading', undef, sub { AssignValue(IN_TABULAR_HEAD => 0, 'global'); });
-
-# Really shouldn't be setting things from macros,
-# but a primitive interferes with \noalign, \hline,...
-# AND INDEED, the timing is still off...
-# would need to group around rows, but still need to START the row first...???
-# Need to find a better way to note IN_TABULAR_HEAD...?
-# Set something in the current alignment/row ??? (or next row?)
-#DefMacroI('\@tabular@begin@heading', undef, sub { AssignValue(IN_TABULAR_HEAD => 1); });
-#DefMacroI('\@tabular@end@heading', undef, sub { return; });
-
 DefMacroI('\@tabular@begin@heading', undef, sub {
     my $alignment = LookupValue('Alignment');
     $$alignment{in_tabular_head} = 1;
@@ -2821,145 +2648,10 @@ DefMacroI('\@tabular@end@heading', undef, sub {
     $$alignment{in_tabular_head} = 0;
     return; });
 
-# DefMacroI('\@close@column',  undef, '\@column@after\@@close@column');
-# DefMacroI('\@open@column',   undef, '\@@open@column\@column@before');
-# DefMacroI('\@column@before', undef, '');
-# DefMacroI('\@column@after',  undef, '');
-
-# DefPrimitiveI('\@@close@column', undef, sub { $_[0]->egroup; });
-# DefPrimitive('\@@open@column SkipSpaces DigestedBody', sub {
-#     my ($stomach, $boxes) = @_;
-#     my $alignment = LookupValue('Alignment');
-#     return () unless $alignment;    # ??
-#     my $n0      = LookupValue('alignmentStartColumn') + 1;
-#     my $n1      = $alignment->currentColumnNumber;
-#     my $colspec = $alignment->getColumn($n0);
-#     my $align   = $$colspec{align} || 'left';
-#     my $border  = '';
-#     # Peel off any boxes from both sides until we get the "meat" of the column.
-#     # from this we can establish borders, alignment and emptiness.
-#     # But we, of course, immediately put them back...
-#     my @boxes     = $boxes->unlist;
-#     my @saveleft  = ();
-#     my @saveright = ();
-#     while (@boxes) {
-#       if ($boxes[0]->getProperty('isFill')) {
-#         $align = 'right'; shift(@boxes); last; }
-#       elsif ($boxes[0]->getProperty('isVerticalRule')) {
-#         $border .= 'l'; shift(@boxes); }
-#       elsif ($boxes[0]->getProperty('isHorizontalRule')) {
-#         push(@saveleft, shift(@boxes)); }
-#       elsif ($boxes[0]->getProperty('alignmentSkippable')) {
-#         push(@saveleft, shift(@boxes)); }
-#       elsif (ref $boxes[0] eq 'LaTeXML::Core::Comment') {
-#         push(@saveleft, shift(@boxes)); }
-#       elsif ($boxes[0]->getProperty('isSpace')) {
-#         push(@saveleft, shift(@boxes)); }
-#       elsif (IsEmpty($boxes[0])) {
-#         push(@saveleft, shift(@boxes)); }
-#       else {
-#         last; } }
-#     while (@boxes) {
-#       if ($boxes[-1]->getProperty('isFill')) {
-#         if ($align eq 'right') { $align = 'center'; }
-#         pop(@boxes); last; }
-#       elsif ($boxes[-1]->getProperty('isVerticalRule')) {
-#         $border .= 'r'; pop(@boxes); }
-#       elsif ($boxes[-1]->getProperty('isHorizontalRule')) {
-#         unshift(@saveright, pop(@boxes)); }
-#       elsif ($boxes[-1]->getProperty('alignmentSkippable')) {
-#         unshift(@saveright, pop(@boxes)); }
-#       elsif (ref $boxes[-1] eq 'LaTeXML::Core::Comment') {
-#         unshift(@saveright, pop(@boxes)); }
-#       elsif ($boxes[-1]->getProperty('isSpace')) {
-#         unshift(@saveright, pop(@boxes)); }
-#       elsif (IsEmpty($boxes[-1])) {
-#         unshift(@saveright, pop(@boxes)); }
-#       else {
-#         last; } }
-#     delete $$colspec{width} unless $align eq 'justify';
-#     my $empty = scalar(@boxes) == 0;
-#     $align = undef if $empty;
-#     @boxes = (@saveleft, @boxes, @saveright);
-#     $boxes = List(@boxes, mode => ($boxes->isMath ? 'math' : 'text'));
-
-#     # record relevant info in the Alignment.
-#     $$colspec{align}   = $align;
-#     $$colspec{border}  = $border = ($$colspec{border} || '') . $border;
-#     $$colspec{boxes}   = $boxes;
-#     $$colspec{colspan} = $n1 - $n0 + 1;
-#     $$colspec{empty}   = 1 if $empty;
-#     if (LookupValue('IN_TABULAR_HEAD') || LookupValue('IN_TABULAR_FOOT')) {
-#       $$colspec{thead}{column} = 1; }
-#     for (my $i = $n0 + 1 ; $i <= $n1 ; $i++) {
-#       my $c = $alignment->getColumn($i);
-#       $$c{skipped} = 1 if $c; }
-#     #  $stomach->egroup;
-#     $boxes; },
-#   beforeDigest => sub {
-#     if (my $alignment = LookupValue('Alignment')) {
-#       AssignValue(alignmentStartColumn => $alignment->currentColumnNumber); }
-#     $_[0]->bgroup; });
-
 AssignValue(ALIGNMENT_LINE_COMMANDS => []);
 PushValue(ALIGNMENT_LINE_COMMANDS => T_CS('\hline'));
 PushValue(ALIGNMENT_LINE_COMMANDS => T_CS('\cline'));
 PushValue(ALIGNMENT_LINE_COMMANDS => T_CS('\label'));
-
-# DefMacroI('\@open@inner@column',  undef, '\@@open@inner@column\@inner@column@before');
-# DefMacroI('\@close@inner@column', undef, '\@@eat@space\@inner@column@after\@@close@inner@column');
-
-# DefMacroI('\@inner@column@before', undef, '');
-# DefMacroI('\@inner@column@after', undef, sub {
-# ###    my $alignment = LookupValue('Alignment');
-# ###    my $column = $alignment && $alignment->currentColumn;
-# ###    ($column ? afterCellUnlist($$column{after}) : ());
-#     return ();
-# });
-
-# DefPrimitiveI('\@@close@inner@column', undef, sub { $_[0]->egroup; });
-# DefPrimitiveI('\@@open@inner@column', undef, sub {
-#     my ($stomach) = @_;
-#     my $alignment = LookupValue('Alignment');
-#     $stomach->bgroup;
-#     return () unless $alignment;    # Presumably will already be reporting (many) errors...
-#     my $colspec     = $alignment->nextColumn;
-#     my $gullet      = $stomach->getGullet;
-#     my @lines       = ();
-#     my @line_tokens = @{ LookupValue('ALIGNMENT_LINE_COMMANDS') };
-#     my @savedtokens = ();
-#     $$colspec{empty} = 0;           # Assume the column isn't empty
-#                                     # Scan for leading \omit, skipping over (& saving) \hline.
-
-#     if ($alignment && $$alignment{in_column}) {
-#       Error('unexpected', 'column', $stomach, "We seem to already be inside a column"); }
-#     $$alignment{in_column} = 1;
-#     while (my $tok = $gullet->readXToken(0)) {
-#       if ($tok->equals(T_SPACE)) { }    # Skip leading space
-#       elsif (grep { $tok->equals($_) } @line_tokens) {    # Save line commands
-#         push(@lines, $stomach->invokeToken($tok)); }
-#       elsif (Equals($tok, T_BEGIN)) {                     # Crazy... seems { doesn't "block" \omit!
-#         push(@savedtokens, $tok); }
-#       else {
-#         if (Equals($tok, T_CS('\omit'))) {    # \omit removes the before/after tokens for this column.
-#           $$colspec{before} = $$colspec{after} = Tokens(); }
-#         ## If we find \@@eat@space, we're at end of the columns content, so consider it empty
-#         elsif (Equals($tok, T_CS('\@@eat@space'))) {    # First non-empty token implies column is empty.
-#                                                         # NOTE: Make clear why this means empty!?
-#           $$colspec{empty} = 1; }
-#         print STDERR "ALIGNMENT Column began at " . Stringify($tok) . " @ " . ToString($stomach->getGullet->getLocator);
-#         $gullet->unread($tok); last; } }
-#     $gullet->unread(@savedtokens);
-# ####    $gullet->unread(beforeCellUnlist($$colspec{before}));
-#     # Careful about sticking the template in!!!!!!
-#     $gullet->unread(beforeCellUnlist($$colspec{before})) unless $$colspec{empty};
-#     print STDERR " => " . ($$colspec{empty} ? "<column empty>"
-#       : ToString(Tokens(@{ $$colspec{before} }))) . "\n";
-#     (@lines, $STATE->getStomach->digestNextBody()); });
-# ##    my @body = $STATE->getStomach->digestNextBody();
-# ##   print STDERR "INNNER; Saved was ".ToString(Tokens(@savedtokens))
-# ##      ."\n Body: ".join(' ',map { ToString($_); } @body)."\n";
-# ##(@lines,@body); });
 
 # NOTE: Watch here for problems with alignments.
 # The previous version threw away too much stuff (esp. metadata).
@@ -2986,9 +2678,6 @@ DefPrimitiveI('\@@eat@space', undef, sub {
 
 # Yet more special case hacking. Sometimes the order of tokens works for
 # TeX, but confuses us... In particular the order of $ and \hfil!
-# \@open@column is too late, since the stuff is already digested.
-# Could _almost_  handle the extractions here, but there are several
-# rule operators that digest into whatsits with certain properties...
 sub beforeCellUnlist {
   my ($tokens) = @_;
   return () unless $tokens;
@@ -3015,82 +2704,6 @@ sub afterCellUnlist {
       unshift(@new, $t); } }
   return @new; }
 
-#----------------------------------------------------------------------
-# \halign, See Chap.22
-DefConstructor('\XXXXXXXXXxhalign BoxSpecification',
-  '#body',
-  reversion   => '\halign #1{#2\cr#3}',
-  bounded     => 1,
-  sizer       => '#1',
-  afterDigest => sub {
-    my ($stomach, $whatsit) = @_;
-    my $gullet = $stomach->getGullet;
-###
-###    my $stuff = $gullet->readArg;
-###    print STDERR "HALIGN on ".join(' ',map { Stringify($_); } $stuff->unlist)."\n";
-###    $gullet->unread(T_BEGIN,$stuff,T_END);
-###
-    my $t = $gullet->readNonSpace;
-    Error('expected', '\bgroup', $stomach, "Missing \\halign box") unless Equals($t, T_BEGIN);
-    # Read the template up till something equivalent to \cr
-    my @template = ();
-    # Only expand certain things; See TeX book p.238
-    while (($t = $gullet->readToken(0)) && !Equals($t, T_CS('\cr'))) {
-      if ($t->equals(T_CS('\tabskip'))) {    # Read the tabskip assignment
-        $gullet->readKeyword('=');
-        my $value = $gullet->readGlue; }     # Discard! In principle, should store in template!
-      elsif ($t->equals(T_CS('\span'))) {    # ex-span-ded next token.
-        $gullet->unread($gullet->readXToken(0)); }
-      else {
-        push(@template, $t); } }
-    # Convert the template
-    my $ismath  = $STATE->lookupValue('IN_MATH');
-    my $before  = 1;                                # true if we're before a # in current column
-    my @pre     = ();
-    my @post    = ();
-    my @cols    = ();
-    my @nonreps = ();
-###print STDERR "ALIGNMENT Template: ".ToString(Tokens(@template))."\n";
-    foreach my $t (@template, T_ALIGN) {            # put & at end, to save column!
-
-      if ($t->equals(T_PARAM)) {
-        $before = 0; }
-      elsif ($t->equals(T_ALIGN)) {
-        if ($before) { @nonreps = @cols; @cols = (); } # A & while we're before a column means Repeated columns
-        else {                                         # Finished column spec; add it
-              # Try some magic for math, so we can create a valid math matrix (maybe!)
-              # DAMN \halign can't be in math, anyway.
-              # So, to get a matrix, we'll have to rewrite the alignment!
-          if ($ismath) {
-            push(@pre, T_MATH); unshift(@post, T_MATH); }
-          push(@cols, { before => Tokens(stripDupMath(beforeCellUnlist(Tokens(@pre)))),
-              after => Tokens(stripDupMath(afterCellUnlist(Tokens(@post)))) });
-          @pre = @post = (); $before = 1; } }
-      elsif ($before) {
-        push(@pre, $t) if @pre || !$t->equals(T_SPACE); }
-      else {
-        push(@post, $t) if @post || !$t->equals(T_SPACE); } }
-
-    my $template = LaTeXML::Core::Alignment::Template->new((@nonreps ?
-          (columns => [@nonreps], repeated => [@cols])
-        : (columns => [@cols])));
-    #  print STDERR "Template = ".Stringify(Tokens(@template))."\n => ".$template->show."\n";
-    # Now read & digest the body.
-    # Note that the body MUST end with a \cr, and that we've made Special Arrangments
-    # with \alignment@cr to recognize the end of the \halign
-    # and sneak a \@finish@alignment in!!!!!
-    # (otherwise none of the row/column/alignment constructors know when to end, as written)
-    my $spec = $whatsit->getArg(1);
-    alignmentBindings($template, undef,
-      attributes => {
-        width => orNull(GetKeyVal($spec, 'to')) });
-    $stomach->bgroup;    # This will be closed by the \halign's closing }
-    $gullet->unread(T_CS('\@start@alignment'));
-    $whatsit->setBody($stomach->digestNextBody, undef);    # extra undef as dummy "trailer"
-    if (my $s = GetKeyVal($spec, 'spread')) {
-      $whatsit->setWidth($whatsit->getBody->getWidth->add($s)); }
-    return; });
-
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # NEW Alignment code
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -3101,16 +2714,6 @@ DefConstructor('\XXXXXXXXXxhalign BoxSpecification',
 # Probably we have to handle these cases by more generic default code
 # and appropriate tweaks of alignment data????
 
-# open@alignment: bgroup, connect whatsit & alignment
-# close@alignment: egroup
-# open@row: bgroup; addBeforeRow \@row@before (??)
-# close@row: addAfterRow \@row@after (??); egroup
-# [For \@row@before & after: see xcolor and LaTeX.pool]
-# [Also see \@column@before, @column@after]
-# open@column: digest body; analyze for rules,spacing, etc \@column@before
-# close@column: \@column@before; egroup
-# open@inner@column: bgroup, check for stuff?
-# close@inner@column: egroup
 # Algorithm:
 #   open@alignment
 #     Loop while read_column
@@ -3133,12 +2736,12 @@ DefConstructor('\halign BoxSpecification',
     $stomach->egroup;
     return; });
 
-##DefConstructor('\@open@alignment SkipSpaces DigestedBody',
 DefConstructor('\@open@alignment SkipSpaces',
   "#alignment",
   #  reversion => '#alignment',
   #  reversion => sub { Revert($_[0]->getProperty('alignment')); },
-  reversion => sub { Revert($_[0]->getProperty('body')); },
+##  reversion => sub { Revert($_[0]->getProperty('body')); },
+  reversion => sub { Revert($_[0]->getProperty('alignment')); },
   sizer     => '#alignment',
   #  beforeDigest => sub { $_[0]->bgroup; },
   afterDigest => sub {
@@ -3270,10 +2873,6 @@ sub parseHAlignTemplate {
       : (columns => [@cols])));
   return $template; }
 
-our $DEBUG_COLUMN = 0;
-
-#DefMacro('\@alignment@newline OptionalMatch:* [Dimension]', '\cr');    # FIX THIS
-
 sub alignmentBindings {
   my ($template, $mode, %properties) = @_;
   $mode = LookupValue('MODE') unless $mode;
@@ -3291,25 +2890,73 @@ sub alignmentBindings {
       closeColumn    => sub { $_[0]->closeElement($coltype); },
       isMath         => $ismath,
       properties     => {%properties}));
-## NO! NO! NO!!!!!
-##  Let(T_ALIGN,           '\@alignment@align');
-##  Let("\\\\", '\@alignment@newline');
-## NO, NOT \let!!!!
-##  Let('\tabularnewline', '\@alignment@newline');
-##  Let('\cr',             '\@alignment@cr');
-##  Let('\crcr',           '\@alignment@cr');
-##  Let("\\\\",                   '\cr'); # FIX THIS!!!!!
   Let('\hline', '\@alignment@hline');
   Let(T_MATH, ($ismath ? '\@dollar@in@mathmode' : '\@dollar@in@textmode'));
-##  Let('\@open@row',  '\default@open@row');
-##  Let('\@close@row', '\default@close@row');
-
   return; }
 
 DefMacroI('\@row@before',    undef, undef);
 DefMacroI('\@row@after',     undef, undef);
 DefMacroI('\@column@before', undef, undef);
 DefMacroI('\@column@after',  undef, undef);
+
+our $DEBUG_COLUMN = 0;
+
+sub alaux_dbg {
+  my ($alignment, $token, $what) = @_;
+  print STDERR "ALIGNMENT $what at " . ($token ? Stringify($token) : '<nothing>')
+    . " (level " . $STATE->getFrameDepth . ")\n" if $DEBUG_COLUMN;
+  return; }
+
+sub alaux_start_row {
+  my ($alignment, $token, $pseudorow) = @_;
+  alaux_dbg($alignment, $token, "Row starting");
+  $alignment->newRow;
+  $STATE->getStomach->bgroup;    # Grouping around ROW!
+###  Digest(T_CS('\@row@before'));
+###  push(@LaTeXML::LIST,Digest(T_CS('\@row@before')));
+#####  $STATE->getStomach->getGullet->unread(T_CS('\@row@before'));
+###          Digest(T_CS('\begingroup'),T_CS('\@row@before'));
+  if ($pseudorow) {
+    $alignment->currentRow->{pseudorow} = 1; }
+  else {
+    push(@LaTeXML::LIST, Digest(T_CS('\@row@before')));
+  }
+  $$alignment{have_row} = 1;
+###  AssignValue(alignmentStartColumn => $alignment->currentColumnNumber); # ???
+  AssignValue(alignmentStartColumn => 0);    # ???
+  return; }
+
+sub alaux_end_row {
+  my ($alignment, $token) = @_;
+  return unless $$alignment{have_row};
+  alaux_end_column($alignment) if $$alignment{have_column};
+  $STATE->getStomach->egroup;                # Grouping around ROW!
+  alaux_dbg($alignment, $token, "Row ending");
+  #  Digest(T_CS('\@row@after'));
+  $$alignment{have_row} = undef;
+  return; }
+
+sub alaux_start_column {
+  my ($alignment, $token, $pseudorow) = @_;
+  alaux_start_row($alignment, $token, $pseudorow) unless $$alignment{have_row};
+  $STATE->getStomach->bgroup;                # Grouping around CELL!
+  alaux_dbg($alignment, $token, "Column starting");
+  AssignValue(alignmentStartColumn => $alignment->currentColumnNumber);
+  my $colspec = $alignment->nextColumn;
+  $$colspec{empty}         = 0;                 # Assume the column isn't empty
+  $$alignment{align_state} = 1000000;
+  $$alignment{in_column}   = 'before-column';
+  $$alignment{have_column} = 1;
+  return; }
+
+sub alaux_end_column {
+  my ($alignment, $token) = @_;
+  return unless $$alignment{have_column};
+  $STATE->getStomach->egroup;                   # Grouping around CELL!
+  alaux_dbg($alignment, $token, "Column ending");
+  $$alignment{have_column} = undef;
+  $$alignment{in_column}   = 0;
+  return; }
 
 sub digestAlignmentBody {
   my ($stomach, $whatsit) = @_;
@@ -3322,253 +2969,225 @@ sub digestAlignmentBody {
   $whatsit->setProperty(alignment => $alignment);
   $alignment->setBody($whatsit);
   #  $whatsit->setBody($alignment);
-  my $needrow = 1;
-##  $alignment->newRow;
-##  Digest(T_CS('\@row@before'));
-##  AssignValue(alignmentStartColumn => $alignment->currentColumnNumber);
-  print STDERR "BODY Processing...\n" if $DEBUG_COLUMN;
+  print STDERR "BODY Processing (level " . $STATE->getFrameDepth . ")...\n" if $DEBUG_COLUMN;
   my $lastwascr = undef;
   my @body      = ();
   while (1) {
-    print STDERR "BODY looking for cell\n" if $DEBUG_COLUMN;
-##    Digest(T_CS('\@column@before'));
-    my ($cell, $next) = digestAlignmentColumn($stomach, $alignment, $lastwascr, $needrow);
-##    Digest(T_CS('\@column@after'));
+    print STDERR "BODY looking for cell  (level " . $STATE->getFrameDepth . ")\n" if $DEBUG_COLUMN;
+    ### WHY HERE?
+###    $stomach->bgroup;    # Grouping around CELL!
+    my ($cell, $celltoks, $next) = digestAlignmentColumn($stomach, $alignment, $lastwascr);
     print STDERR "CELL[" . $alignment->currentRowNumber . "," . $alignment->currentColumnNumber . "]"
-      . ToString($cell) . " ended at " . Stringify($next) . "\n" if $DEBUG_COLUMN;
+      . ToString($cell) . "  (level " . $STATE->getFrameDepth . ") ended at " . Stringify($next) . "\n" if $DEBUG_COLUMN;
 
     print STDERR "BODY DONE!\n" if !$cell && $DEBUG_COLUMN;
-###    return unless $cell;    # ?
-    last unless $cell;    # ?
-    $needrow = 0;
+    if (!$cell) {
+      last; }
     if ($next && Equals($next, T_CS('\span'))) {
       # actually: keep $cell and combine with the coming one!
+      print STDERR "ALIGNMENT SAW \\span in funny place!\n";
       next; }
-    push(@body, $cell->revert, $next);
+    #    push(@body, $cell->revert, $next)
+##    push(@body, ($celltoks ? $celltoks->unlist : ()), $next);
+    push(@body, ($celltoks ? $celltoks->unlist : ()));
     extractAlignmentColumn($alignment, $cell);
-    if (!$next) {
-      print STDERR "BODY ending\n" if $DEBUG_COLUMN;
+    if (!$next
+      || Equals($next, T_END)                           # End of alignment
+      || Equals($next, T_CS('\@close@alignment'))) {    # End of alignment
+      alaux_end_row($alignment, $next);
       last; }
-    #    if ($next->equals(T_END)) {    # End of alignment
-    if (Equals($next, T_END)) {    # End of alignment
-      print STDERR "BODY ending at " . Stringify($next) . "\n" if $DEBUG_COLUMN;
-      last; }
-    elsif (Equals($next, T_CS('\@close@alignment'))) {    # End of alignment
-      print STDERR "BODY ending at " . Stringify($next) . "\n" if $DEBUG_COLUMN;
-      last; }
-    #    elsif ($next->equals(T_ALIGN)) {                      # End column, prepare for next
-    elsif (Equals($next, T_ALIGN)) {                      # End column, prepare for next
-      print STDERR "BODY next column\n" if $DEBUG_COLUMN;
-      AssignValue(alignmentStartColumn => $alignment->currentColumnNumber); }
-    #    elsif ($next->equals(T_CS('\cr'))) {    # End row, prepare for next
-    elsif (Equals($next, T_CS('\cr'))                     # End row, prepare for next
-      || Equals($next, T_CS('\crcr'))) {                  # \crcr if not discarded by digest column.
-      print STDERR "BODY ending row at " . Stringify($next) . "\n" if $DEBUG_COLUMN;
-      Digest(T_CS('\@row@after'));
-      $stomach->egroup;
-      $needrow = 1;
-##      $alignment->newRow;
-##      Digest(T_CS('\@row@before'));
-##      AssignValue(alignmentStartColumn => $alignment->currentColumnNumber);
-      $lastwascr = 1;                                     # Note, in case next is \crcr
+    elsif (Equals($next, T_ALIGN)) {                    # End column, prepare for next
+      alaux_end_column($alignment, $next);
+      push(@body, $next); }
+    elsif (Equals($next, T_CS('\hidden@align'))) {      # End column, prepare for next
+      alaux_end_column($alignment, $next); }
+    elsif (Equals($next, T_CS('\cr'))                   # End row, prepare for next
+      || Equals($next, T_CS('\crcr'))                   # \crcr if not discarded by digest column.
+      || Equals($next, T_CS('\hidden@cr'))
+      || Equals($next, T_CS('\hidden@crcr'))) {
+      alaux_end_row($alignment, $next);
+      # BUT we need to get \cr into the @body!!!
+      if (Equals($next, T_CS('\cr')) || Equals($next, T_CS('\crcr'))) {
+        push(@body, $next); }
+      elsif (Equals($next, T_CS('\hidden@cr'))) {
+        my $arg = $gullet->readArg();
+        push(@body, Revert($stomach->digest($arg))); }
+      $lastwascr = 1;                                   # Note, in case next is \crcr
     }
-    # #    elsif ($next->equals(T_CS('\crcr'))) {    # equivalent to \cr unless previous was \cr
-    # elsif (Equals($next, T_CS('\crcr'))) {                # equivalent to \cr unless previous was \cr
-    #   print STDERR "BODY next row(?)\n" if $DEBUG_COLUMN;
-    #   afterEquation();
-    #   $alignment->newRow;
-    #   beforeEquation();
-    #   AssignValue(alignmentStartColumn => $alignment->currentColumnNumber);
-    #   $lastwascr = 1;
-    # }
     elsif ($next) {
       Error('unexpected', $next, $stomach,
         "Column ended with " . Stringify($next)); }
   }
-  if (!$needrow) {
-    print STDERR "BODY ending last row\n" if $DEBUG_COLUMN;
-    Digest(T_CS('\@row@after'));
-    $stomach->egroup;
-  }
+  alaux_end_row($alignment, undef);
+  if ($$alignment{have_row}) {                          # Is this an error????
+    print STDERR "SNEAKING LAST ROW!\n"; }
+##print STDERR "ALIGNMENT: ".ToString(Tokens(@body))."\n";
   $alignment->setReversion(Tokens(@body));
-  print STDERR "BODY DONE!\n" if $DEBUG_COLUMN;
+  print STDERR "BODY DONE (level " . $STATE->getFrameDepth . "!\n"
+    . "=> " . join(',', map { Stringify($_); } @body) . "\n" if $DEBUG_COLUMN;
   return; }
 
 # Read & digest an alignment column's data,
 # accommodating the current template and any special cs's
 sub digestAlignmentColumn {
-  my ($stomach, $alignment, $lastwascr, $needrow) = @_;
+  my ($stomach, $alignment, $lastwascr) = @_;
   my $gullet = $stomach->getGullet;
-  #  my $alignment = LookupValue('Alignment');
   my $ismath = $STATE->lookupValue('IN_MATH');
-  #  $stomach->bgroup;
   return () unless $alignment;    # Presumably will already be reporting (many) errors...
   my $level = 0;
   local @LaTeXML::LIST = ();
-
+  my @collist = ();
   # Scan for leading \omit, skipping over (& saving) \hline.
   if ($alignment && $$alignment{in_column}) {
     Error('unexpected', 'column', $stomach, "We seem to already be inside a column"); }
-  print STDERR "COLUMN starting scan\n" if $DEBUG_COLUMN;
+  print STDERR "COLUMN starting scan (level" . $STATE->getFrameDepth . ")\n" if $DEBUG_COLUMN;
   my $token;
-  my $done = 0;
-  my $colspec;
-  my $spanned = 0;
+  my $done     = 0;
+  my $spanning = 0;
   while (!$done) {                # Outer loop; collects 1 column (possibly multiple spans)
     ## Scan till we get something NOT \omit, \noalign
     # Hmm, note that things like \cline should NOT interfere with \omit,\noalign!
     while ($token = $gullet->readXToken(0)) {
       if ($token->equals(T_SPACE)) { }    # Skip leading space.
       elsif (Equals($token, T_CS('\omit'))) {    # \omit removes template for this column.
-        print STDERR "COLUMN omit\n" if $DEBUG_COLUMN;
-        if ($needrow) {
-          print STDERR "BODY open row\n" if $DEBUG_COLUMN;
-          $alignment->newRow;
-          $stomach->bgroup;
-          Digest(T_CS('\@row@before'));
-          AssignValue(alignmentStartColumn => $alignment->currentColumnNumber);
-          $needrow = 0;
-          #          $colspec = $alignment->nextColumn; # Be sure to start (omitted) column, too
-          #          $$colspec{empty} = 0;         # Assume the column isn't empty
-          #          $stomach->bgroup;
-          #          Digest(T_CS('\@column@before'));
-        }
-        #        $$colspec{before} = $$colspec{after} = Tokens(); }
-##        my $nextspec = $alignment->getColumn($alignment->currentColumnNumber+1);
-##        $$nextspec{before} = $$nextspec{after} = Tokens();
-        $alignment->omitNextColumn;
-      }
+        alaux_start_row($alignment, $token) unless $$alignment{have_row};
+        $alignment->omitNextColumn; }
       # Exactly WHICH of these \crcr clauses do we actually need????
-      elsif ($lastwascr && Equals($token, T_CS('\crcr'))) {    # If \crcr following \cr, ignore it.
+      elsif ($lastwascr &&
+        (Equals($token, T_CS('\crcr'))           # If \crcr following \cr, ignore it.
+          || Equals($token, T_CS('\hidden@crcr'))
+        )) {
       }
-      elsif (Equals($token, T_CS('\noalign'))) {               # \puts something in vertical list
-        print STDERR "COLUMN noalign\n" if $DEBUG_COLUMN;
-        if (!$needrow) {
-          print STDERR "BODY noalign ending previous row\n" if $DEBUG_COLUMN;
-          Digest(T_CS('\@row@after'));
-          $stomach->egroup;
-        }
-        if ($needrow) {
-          $alignment->newRow;
-          AssignValue(alignmentStartColumn => $alignment->currentColumnNumber);
-          $stomach->bgroup;
-          Digest(T_CS('\@row@before'));
-        }
+      elsif (Equals($token, T_CS('\noalign'))) {    # \puts something in vertical list
+        alaux_end_row($alignment, $token) if $$alignment{have_row};
+        alaux_start_column($alignment, $token);
+        $alignment->currentRow->{pseudorow} = 1;
+##        alaux_start_column($alignment, $token, 1);
         # CLUMSY!!!!
         my $arg = $gullet->readArg;
         #        $stomach->egroup;
         # Hmmm. NOW WE HAVE TO MAKE A NEW ROW MANUALLY!!!!!
-###        $colspec = $alignment->lastColumn;
-        $colspec = $alignment->nextColumn;
-        $$colspec{empty} = 0;    # Assume the column isn't empty
         $alignment->lastColumn;
-        return ($stomach->digest($arg), T_CS('\cr'));    # Pretend this is a whole row???
+        my $r = $stomach->digest($arg);
+        alaux_end_row($alignment, $token);    # ?
+        return ($r, undef, T_CS('\cr'));      # Pretend this is a whole row???
       }
+      elsif (Equals($token, T_CS('\hidden@noalign'))) {    # \puts something in vertical list
+        print STDERR "COLUMN invisible noalign\n" if $DEBUG_COLUMN;
+        my $arg = $gullet->readArg;
+        push(@collist, $stomach->digest($arg)); }
       else {
         last; } }
     print STDERR "COLUMN end scan at " . Stringify($token) . "\n" if $DEBUG_COLUMN;
     if (!$token || Equals($token, T_END)) {
-      #      $stomach->egroup;
-      return (undef, $token); }
-    $gullet->unread($token);                             # reread whatever above loop read
+      return (undef, undef, $token); }
+    $gullet->unread($token);                               # REREAD whatever above loop read
     if ($token && Equals($token, T_CS('\@close@alignment'))) {
-      #      $stomach->egroup;
-      return (undef, $token); }
-    if ($needrow) {
-      print STDERR "BODY open row\n" if $DEBUG_COLUMN;
-      $alignment->newRow;
-      $stomach->bgroup;
-      Digest(T_CS('\@row@before'));
-      AssignValue(alignmentStartColumn => $alignment->currentColumnNumber);
-      $needrow = 0; }
-    $colspec = $alignment->nextColumn;
-    if (!$spanned) {
-####      $stomach->bgroup;
-##      Digest(T_CS('\@column@before'));
-      $spanned = 0; }
-    $$colspec{empty}       = 0;    # Assume the column isn't empty
-    $$alignment{in_column} = 1;
-##    print STDERR "COLUMN insert pre-template " . ToString($$colspec{before}) . "\n" if $DEBUG_COLUMN;
-##    $gullet->unread(beforeCellUnlist($$colspec{before}));      ### unless $$colspec{empty};
+      return (undef, undef, $token); }
+    # Next column, unless spanning (then combine columns)
+    if ($spanning) {
+      $spanning = 0;
+      $alignment->nextColumn; }
+    else {
+##      AssignValue(alignmentStartColumn => $alignment->currentColumnNumber);
+      alaux_start_column($alignment, $token); }
     my $pre = $alignment->getColumnBefore;
     print STDERR "COLUMN insert pre-template " . ToString($pre) . "\n" if $DEBUG_COLUMN;
-    $gullet->unread($pre);
-###    if(! $spanned){
-###      $gullet->unread(T_CS('\bgroup'),T_CS('\@column@before'));
-###      $spanned = 0; }
+##    $gullet->unread($pre);
+    $gullet->unread($pre, T_MARKER('before-column'));    # Add marker to detect start of column content
 
-    my $initdepth = scalar(@{ $$stomach{boxing} });    # !!!!!!!!!!!
+    my $initdepth = $STATE->getFrameDepth;               # !!!!!!!!!!!
     while ($token = $gullet->readXToken(0)) {
-##      if ($token->equals(T_ALIGN) || $token->equals(T_CS('\cr'))
-##        || $token->equals(T_CS('\crcr'))) {
-##      if (Equals($token, T_ALIGN) || Equals($token, T_CS('\cr'))
-##        || Equals($token, T_CS('\crcr'))) {
-##        print STDERR "COLUMN ended with " . Stringify($token) . "\n" if $DEBUG_COLUMN;
-##        $done = 1;
-##        last; }
-      if (Equals($token, T_ALIGN)) {
-        $token = T_ALIGN;                              # Canonicalize
+      if (Equals($token, T_ALIGN)
+        || Equals($token, T_CS('\hidden@align'))) {
         print STDERR "COLUMN ended with " . Stringify($token) . "\n" if $DEBUG_COLUMN;
         $done = 1;
         last; }
-      elsif (Equals($token, T_CS('\cr'))) {
-        $token = T_CS('\cr');                          # Canonicalize
+      elsif (Equals($token, T_CS('\cr'))
+        || Equals($token, T_CS('\hidden@cr'))) {
         print STDERR "COLUMN ended with " . Stringify($token) . "\n" if $DEBUG_COLUMN;
         $done = 1;
         last; }
-      elsif (Equals($token, T_CS('\crcr'))) {
-        $token = T_CS('\crcr');                        # Canonicalize
+      elsif (Equals($token, T_CS('\crcr'))
+        || Equals($token, T_CS('\hidden@crcr'))
+      ) {
+        #        $token = T_CS('\crcr');                        # Canonicalize ???
         print STDERR "COLUMN ended with " . Stringify($token) . "\n" if $DEBUG_COLUMN;
         $done = 1;
         last; }
+      elsif (Equals($token, T_CS('\hidden@noalign'))) {    # \puts something in vertical list
+        print STDERR "COLUMN invisible noalign\n" if $DEBUG_COLUMN;
+        my $arg = $gullet->readArg;
+        push(@collist, $stomach->digest($arg)); }
       elsif ($token->equals(T_CS('\span'))) {
         print STDERR "COLUMN span\n" if $DEBUG_COLUMN;
-        #        Digest(T_CS('\@column@after'));
-        #        $stomach->egroup;
-        #        $colspec = $alignment->nextColumn;
-        #        $stomach->bgroup;
-        #        Digest(T_CS('\@column@before'));
-        $spanned = 1;
-        last; }    # next column, but continue accumulating
-                   # Apparently, we'll need to keep track of { and }
-                   # since they shouldn't "box" ???
-                   # At least need to recognize the } which closes the \halign (and environments? )
+        $spanning = 1;
+        last; }                                            # next column, but continue accumulating
+          # Apparently, we'll need to keep track of { and }
+          # since they shouldn't "box" ???
+          # At least need to recognize the } which closes the \halign (and environments? )
       elsif (Equals($token, T_BEGIN)) {    # Crazy... seems { doesn't "block" \omit!
         $level++;
-        print STDERR "COLUMN bgroup $level\n" if $DEBUG_COLUMN;
-        $stomach->bgroup; }                # ie. does NOT create a box!?!?!?!?
+        $stomach->bgroup;                  # ie. does NOT create a box!?!?!?!?
+        push(@collist, T_BEGIN);           # As Token, not Box!
+        print STDERR "COLUMN bgroup $level (" . $STATE->getFrameDepth . ")\n" if $DEBUG_COLUMN;
+      }
       elsif (Equals($token, T_END)) {      # Crazy... seems { doesn't "block" \omit!
         $level--;
-        print STDERR "COLUMN egroup $level\n" if $DEBUG_COLUMN;
+        $stomach->egroup;
+        push(@collist, T_END);
+        print STDERR "COLUMN egroup $level (" . $STATE->getFrameDepth . ")\n" if $DEBUG_COLUMN;
         if ($level < 0) {
           print STDERR "COLUMN ENDED egroup\n" if $DEBUG_COLUMN;
           $done = 1;
-          last; }
-        $stomach->egroup; }
+          last; } }
       else {
-        print STDERR "COLUMN content " . Stringify($token) . " @ " . ToString($stomach->getGullet->getLocator) if $DEBUG_COLUMN;
+        print STDERR "COLUMN content ($$alignment{in_column})(level " . $STATE->getFrameDepth . ")" . Stringify($token) . " @ " . ToString($stomach->getGullet->getLocator) if $DEBUG_COLUMN;
         my @r = $stomach->invokeToken($token);
-        print STDERR " => " . join(' ', map { ToString($_); } @r) . "\n" if $DEBUG_COLUMN;
-        push(@LaTeXML::LIST, @r); }
+        print STDERR " => (level " . $STATE->getFrameDepth . ")" . join(' ', map { Stringify($_); } @r) if $DEBUG_COLUMN;
+
+###        push(@collist,@r);
+###        push(@collist, @r) if $$alignment{in_column} eq 'in-column';
+        ### HACK !!! ###
+
+        # Try to figure out if the template has captured, & will hide, stuff that should be shown!
+        my @body = ();
+        if (($$alignment{in_column} ne 'in-column')
+          && !$$alignment{in_column}
+          && !scalar(@collist)
+          && scalar(@r)
+          && (@body = $r[0]->getBody)
+        ) {
+          print STDERR "\nRECAPTURING? (in $$alignment{in_column}) " . Stringify(List(@r)) . "\n"
+            if $DEBUG_COLUMN;
+          push(@collist, @body); }
+        elsif ($$alignment{in_column} eq 'in-column') {
+          push(@collist, @r); }
+        push(@LaTeXML::LIST, @r);
+        print STDERR " ==> (level " . $STATE->getFrameDepth . ") " . Stringify(List(@LaTeXML::LIST)) . "\n" if $DEBUG_COLUMN;
+      }
       # if we end the outer group...
-      if ($initdepth > scalar(@{ $$stomach{boxing} })) {
-        $done = 1; last; }
+      if ($initdepth > $STATE->getFrameDepth) {
+        print STDERR "IMBALANCE ENDING due to " . Stringify($token) . " with $initdepth > " . $STATE->getFrameDepth . "\n" if $DEBUG_COLUMN;
+###        $done = 1; last;
+      }
 
     }
     $$alignment{in_column} = 0;
   }
-  print STDERR "COLUMN done\n" if $DEBUG_COLUMN;
-##  Digest(T_CS('\@column@after'));
-####  $stomach->egroup;
-  return (List(@LaTeXML::LIST, mode => ($ismath ? 'math' : 'text')), $token); }
+  print STDERR "COLUMN done (level " . $STATE->getFrameDepth . ")at " . Stringify($token) . "\n" if $DEBUG_COLUMN;
+  return (List(@LaTeXML::LIST, mode => ($ismath ? 'math' : 'text')),
+    Tokens(map { Revert($_); } @collist),
+    $token); }
 
 # Given the boxes for an alignment cell,
 # extract the various fills and rules to annotate the cell structure
 sub extractAlignmentColumn {
   my ($alignment, $boxes) = @_;
   return () unless $alignment;    # ??
-  my $n0      = LookupValue('alignmentStartColumn') + 1;
-  my $n1      = $alignment->currentColumnNumber;
+  my $n0 = (LookupValue('alignmentStartColumn') || 0) + 1;
+  my $n1 = $alignment->currentColumnNumber;
+  #print STDERR "EXTRACT COLUMN $n0 -- $n1\n";
   my $colspec = $alignment->getColumn($n0);
   my $align   = $$colspec{align} || 'left';
   my $border  = '';
@@ -3580,6 +3199,9 @@ sub extractAlignmentColumn {
   my @saveleft  = ();
   my @saveright = ();
   while (@boxes) {
+    if (ref $boxes[0] eq 'LaTeXML::Core::List') {
+      unshift(@boxes, shift(@boxes)->unlist);
+      next; }
     if ($boxes[0]->getProperty('isFill')) {
       $align = 'right'; shift(@boxes); last; }
     elsif ($boxes[0]->getProperty('isVerticalRule')) {
@@ -3595,9 +3217,12 @@ sub extractAlignmentColumn {
     elsif (IsEmpty($boxes[0])) {
       push(@saveleft, shift(@boxes)); }
     else {
-###print STDERR "End left check at ".Stringify($boxes[0])."\n";
+      #print STDERR "End left check at ".Stringify($boxes[0])."\n";
       last; } }
   while (@boxes) {
+    if (ref $boxes[-1] eq 'LaTeXML::Core::List') {
+      push(@boxes, pop(@boxes)->unlist);
+      next; }
     if ($boxes[-1]->getProperty('isFill')) {
       if ($align eq 'right') { $align = 'center'; }
       pop(@boxes); last; }
@@ -3614,7 +3239,7 @@ sub extractAlignmentColumn {
     elsif (IsEmpty($boxes[-1])) {
       unshift(@saveright, pop(@boxes)); }
     else {
-###print STDERR "End right check at ".Stringify($boxes[0])."\n";
+      #print STDERR "End right check at ".Stringify($boxes[0])."\n";
       last; } }
   delete $$colspec{width} unless $align eq 'justify';
   my $empty = scalar(@boxes) == 0;
@@ -4213,7 +3838,8 @@ sub addColumnToMathFork {
       $box = $document->getNodeBox($node); }
     elsif ($type eq '#PCDATA') {
       my $string = $node->textContent;
-      next if $string eq '';
+      #      next if $string eq '';
+      next if $string =~ /^\s*$/;
       my $txt = $document->openElementAt($document->getFirstChildElement($main), 'ltx:XMText');
       $txt->appendText($string);
       $document->closeElementAt($txt);
@@ -4336,7 +3962,6 @@ DefMacroI('\eqno', undef, sub {
         || Equals($t, T_CS('\begingroup'))    # Totally wrong, but to catch expanded environments
         || (ToString($t) =~ /^\\(?:begin|end)\{/)    # any sort of environ begin or end???
                                                      # This seems needed within AmSTeX environs
-        || Equals($t, T_CS('\@@close@inner@column'))
       ) {
         #       || Equals($t,T_CS('\end{equation}'))|| Equals($t,T_CS('\end{equation*}'))){
         return (Invocation(T_CS('\@@eqno'), Tokens(@stuff)), $t); }
@@ -6870,8 +6495,12 @@ DefConstructor('\lx@gen@plain@matrix@ RequiredKeyVals:lx@GEN {}',
   properties => sub { %{ $_[1]->getKeyVals }; },
   reversion  => sub {
     my ($whatsit, $kv, $body) = @_;
-    my $name = ToString($kv->getValue('name'));
-    (T_CS('\\' . $name), T_BEGIN, Revert($body), T_END); },
+    my $name      = ToString($kv->getValue('name'));
+    my $alignment = $whatsit->getProperty('alignment');
+##    (T_CS('\\' . $name), T_BEGIN, Revert($body), T_END); },
+##    (T_CS('\\' . $name), T_BEGIN, Revert($alignment), T_END); },
+    (T_CS('\\' . $name), T_BEGIN, $alignment->revert, T_END); },
+
   afterDigest => sub {
     my ($stomach, $whatsit) = @_;
     my $kv = $whatsit->getArg(1);
@@ -6959,7 +6588,8 @@ DefPrimitive('\lx@gen@cases@bindings RequiredKeyVals:lx@GEN', sub {
           { before => Invocation(T_CS('\@hidden'), $style), after => Tokens(T_CS('\hfil')) },
           { before => Tokens(Invocation(T_CS('\@hidden'), $style),
               ($condtext ? (T_CS('\lx@cases@condition')) : ())),
-            after => Tokens(($condtext ? (T_CS('\lx@cases@end@condition')) : ()),
+            after => Tokens(T_CS('\@@eat@space'),
+              ($condtext ? (T_CS('\lx@cases@end@condition')) : ()),
               T_CS('\hfil')) }]),
       'math');
     Let("\\\\", '\@alignment@newline');

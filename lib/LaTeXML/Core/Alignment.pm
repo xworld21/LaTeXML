@@ -150,9 +150,19 @@ sub currentColumnNumber {
   my ($self) = @_;
   return $$self{current_column}; }
 
-sub currentRowNumber {
+#### TODO: Sort out noalign'd "pseudorow"s or alternatives
+## Here we have to ignore pseudorows when couting.
+## but we still have a problem with multirow and some cases of top/bottom borders becoming lost
+sub XXXcurrentRowNumber {
   my ($self) = @_;
   return scalar(@{ $$self{rows} }); }
+
+sub currentRowNumber {
+  my ($self) = @_;
+  my $n = 0;
+  foreach my $row (@{ $$self{rows} }) {
+    $n++ unless $$row{pseudorow}; }
+  return $n; }
 
 sub currentColumn {
   my ($self) = @_;
@@ -190,12 +200,7 @@ sub getColumnBefore {
   my $column;
   if (($column = $self->currentColumn) && !$$column{omitted}) {
     #print STDERR "COLUMN FETCH BEFORE\n";
-    return Tokens(
-      #T_BEGIN,
-      T_CS('\bgroup'),
-      #T_CS('\@hidden@bgroup'),
-      #T_CS('\begingroup'),
-      T_CS('\@column@before'), @{ $$column{before} }); }
+    return Tokens(T_CS('\@column@before'), @{ $$column{before} }); }
   else {
     #print STDERR "COLUMN FETCH BEFORE Omitted\n";
     return Tokens(); } }
@@ -204,14 +209,8 @@ sub getColumnAfter {
   my ($self) = @_;
   my $column;
   if (($column = $self->currentColumn) && !$$column{omitted}) {
-    #print STDERR "COLUMN FETCH AFTER\n";
     # Possible \@@eat@space ??? (if LaTeX style???)
-    return Tokens(@{ $$column{after} }, T_CS('\@column@after')
-        #,T_CS('\endgroup')
-        #,T_CS('\@hidden@egroup')
-      , T_CS('\egroup')
-        #,T_END
-    ); }
+    return Tokens(@{ $$column{after} }, T_CS('\@column@after')); }
   else {
     #print STDERR "COLUMN FETCH AFTER Omitted\n";
     return Tokens(); } }
@@ -236,8 +235,9 @@ sub revert {
   return $$self{reversion}->unlist; }
 
 sub setReversion {
-  my ($self,$tokens) = @_;
-  $$self{reversion} = $tokens; }
+  my ($self, $tokens) = @_;
+  $$self{reversion} = $tokens;
+  return; }
 
 sub computeSize_internal {
   my ($self) = @_;
@@ -303,7 +303,8 @@ sub beAbsorbed {
       # Normalize the border attribute
       my $border = join(' ', sort(map { split(/ */, $_) } $$cell{border} || ''));
       $border =~ s/(.) \1/$1$1/g;
-      my $empty = !$$cell{boxes} || !scalar($$cell{boxes}->unlist);
+##      my $empty = !$$cell{boxes} || !scalar($$cell{boxes}->unlist);
+      my $empty = $$cell{empty} || !$$cell{boxes} || !scalar($$cell{boxes}->unlist);
       $$cell{cell} = &{ $$self{openColumn} }($document,
         align   => $$cell{align}, width => $$cell{width},
         vattach => $$cell{vattach},
@@ -365,6 +366,7 @@ sub normalizeAlignment {
   my $preserve = $$self{isMath} || $self->getProperty('preserve_structure');
 
   my @rows = @{ $$self{rows} };
+####  my @rows = grep { !$$_{pseudorow} } @{ $$self{rows} };
   # Mark any cells that are covered by rowspans
   for (my $i = 0 ; $i < scalar(@rows) ; $i++) {
     my @row = @{ $rows[$i]->{columns} };
