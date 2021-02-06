@@ -29,11 +29,29 @@
       media-type     = 'text/html'/>
 
   <!-- No namespaces; DO use HTML5 elements (include MathML & SVG) -->
-  <xsl:param name="USE_NAMESPACES"  ></xsl:param>
+  <xsl:param name="USE_NAMESPACES"  >true</xsl:param>
   <xsl:param name="USE_HTML5"       >true</xsl:param>
 
   <xsl:template match="/" mode="doctype">
     <xsl:text disable-output-escaping='yes'>&lt;!DOCTYPE html></xsl:text>
+  </xsl:template>
+
+  <xsl:template match="/" mode="head-content-type">
+    <meta charset="utf-8"/>
+  </xsl:template>
+
+  <xsl:template match="/">
+    <xsl:call-template name="alter">
+      <xsl:with-param name="fragment">
+        <xsl:apply-imports/>
+      </xsl:with-param>
+    </xsl:call-template>
+  </xsl:template>
+
+  <xsl:template match="*" mode="alter">
+    <xsl:element name="{local-name()}">
+      <xsl:apply-templates select="@*|node()" mode="alter"/>
+    </xsl:element>
   </xsl:template>
 
 </xsl:stylesheet>
