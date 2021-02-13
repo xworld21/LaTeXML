@@ -259,7 +259,7 @@ sub valueInFrame {
 sub lookupCatcode {
   my ($self, $key) = @_;
   my $e = $$self{catcode}{$key};
-  return $e && $$e[0]; }
+  return $e ? $$e[0] // CC_OTHER : CC_OTHER; }
 
 sub assignCatcode {
   my ($self, $key, $value, $scope) = @_;
@@ -869,6 +869,7 @@ whether it is bound in the C<$frame>-th frame, with 0 being the top frame.
 =item C<< $value = $STATE->lookupCatcode($char); >>
 
 Lookup the current catcode associated with the the character C<$char>.
+Return C<CC_OTHER> if none is found.
 
 =item C<< $STATE->assignCatcode($char,$catcode,$scope); >>
 

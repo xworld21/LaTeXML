@@ -158,7 +158,7 @@ sub UnTeX {
     # If this token is a letter (or otherwise starts with a letter or digit): space or linebreak
     elsif ((($cc == CC_LETTER) || (($cc == CC_OTHER) && ($s =~ /^(?:\p{IsAlpha}|\p{IsDigit})/)))
       && ($prevcc == CC_CS) && ($prevs =~ /(.)$/)
-      && (($STATE->lookupCatcode($1) || CC_COMMENT) == CC_LETTER)) {
+      && ($STATE->lookupCatcode($1) == CC_LETTER)) {
       # Insert a (virtual) space before a letter if previous token was a CS w/letters
       # This is required for letters, but just aesthetic for digits (to me?)
       # Of course, use a newline if we're already at end

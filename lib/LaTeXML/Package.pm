@@ -4399,6 +4399,7 @@ The data stored for C<$name> is global and must be a HASH reference; it is creat
 
 X<LookupCatcode>
 Lookup the current catcode associated with the the character C<$char>.
+Return C<CC_OTHER> if none is found.
 
 =item C<< AssignCatcode($char,$catcode,$scope); >>
 

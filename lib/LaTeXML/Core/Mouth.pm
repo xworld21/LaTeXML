@@ -145,7 +145,7 @@ sub getNextChar {
   my ($self) = @_;
   if ($$self{colno} < $$self{nchars}) {
     my $ch = $$self{chars}[$$self{colno}++];
-    my $cc = $$STATE{catcode}{$ch}[0] // CC_OTHER;    # $STATE->lookupCatcode($ch); OPEN CODED!
+    my $cc = $STATE->lookupCatcode($ch);
     if (($cc == CC_SUPER)                             # Possible convert ^^x
       && ($$self{colno} + 1 < $$self{nchars}) && ($ch eq $$self{chars}[$$self{colno}])) {
       my ($c1, $c2);
@@ -161,7 +161,7 @@ sub getNextChar {
         $ch = chr($cn + ($cn >= 64 ? -64 : 64));
         splice(@{ $$self{chars} }, $$self{colno} - 1, 3, $ch);
         $$self{nchars} -= 2; }
-      $cc = $STATE->lookupCatcode($ch) // CC_OTHER; }
+      $cc = $STATE->lookupCatcode($ch); }
     return ($ch, $cc); }
   else {
     return (undef, undef); } }
