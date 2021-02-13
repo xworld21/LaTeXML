@@ -293,8 +293,7 @@ sub readToken {
       $$self{chars}  = splitChars($line);
       $$self{nchars} = scalar(@{ $$self{chars} });
       while (($$self{colno} < $$self{nchars})
-        # DIRECT ACCESS to $STATE's catcode table!!!
-        && (($$STATE{catcode}{ $$self{chars}[$$self{colno}] }[0] || CC_OTHER) == CC_SPACE)) {
+        && ($STATE->lookupCatcode($$self{chars}[$$self{colno}]) == CC_SPACE)) {
         $$self{colno}++; }
 
       # Sneak a comment out, every so often.
