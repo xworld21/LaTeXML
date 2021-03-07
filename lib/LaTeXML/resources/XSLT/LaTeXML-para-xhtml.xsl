@@ -123,7 +123,7 @@
             <xsl:apply-templates select="." mode="begin">
               <xsl:with-param name="context" select="$context"/>
             </xsl:apply-templates>
-            <xsl:element name="{f:if($USE_HTML5,f:blockelement($context,'figure'),'div')}" namespace="{$html_ns}">
+            <xsl:element name="{f:blockelement($context,'figure')}" namespace="{$html_ns}">
               <xsl:apply-templates select="." mode="inner">
                 <xsl:with-param name="context" select="$context"/>
               </xsl:apply-templates>
@@ -132,7 +132,7 @@
         </div>
       </xsl:when>
       <xsl:otherwise>
-        <xsl:element name="{f:if($USE_HTML5,f:blockelement($context,'figure'),'div')}" namespace="{$html_ns}">
+        <xsl:element name="{f:blockelement($context,'figure')}" namespace="{$html_ns}">
           <xsl:call-template name="add_id"/>
           <xsl:call-template name="add_attributes"/>
           <xsl:apply-templates select="." mode="inner">
@@ -195,7 +195,7 @@
   <xsl:template match="ltx:caption">
     <xsl:param name="context"/>
     <xsl:text>&#x0A;</xsl:text>
-    <xsl:element name="{f:if($USE_HTML5,f:blockelement($context,'figcaption'),'div')}"
+    <xsl:element name="{f:blockelement($context,'figcaption')}"
                  namespace="{$html_ns}">
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes"/>
