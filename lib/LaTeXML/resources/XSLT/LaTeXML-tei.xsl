@@ -97,7 +97,7 @@
 
     <xsl:template match="ltx:document">
 
-        <TEI xmlns="http://www.tei-c.org/ns/1.0">
+        <TEI>
             <teiHeader>
                 <fileDesc>
                     <titleStmt>

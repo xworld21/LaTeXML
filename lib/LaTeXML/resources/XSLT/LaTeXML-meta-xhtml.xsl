@@ -14,6 +14,7 @@
 -->
 <xsl:stylesheet
     version     = "1.0"
+    xmlns       = "http://www.w3.org/1999/xhtml"
     xmlns:xsl   = "http://www.w3.org/1999/XSL/Transform"
     xmlns:ltx   = "http://dlmf.nist.gov/LaTeXML"
     xmlns:f     = "http://dlmf.nist.gov/LaTeXML/functions"
@@ -34,7 +35,7 @@
   <xsl:preserve-space elements="ltx:note"/>
   <xsl:template match="ltx:note">
     <xsl:param name="context"/>
-    <xsl:element name="span" namespace="{$html_ns}">
+    <span>
       <xsl:variable name="innercontext" select="'inline'"/><!-- override -->
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes"/>
@@ -44,19 +45,16 @@
       <xsl:call-template name="note-mark">
         <xsl:with-param name="context" select="$innercontext"/>
       </xsl:call-template>
-      <xsl:element name="span" namespace="{$html_ns}">
-        <xsl:attribute name="class">ltx_note_outer</xsl:attribute>
-        <xsl:element name="span" namespace="{$html_ns}">
-          <xsl:attribute name="class">ltx_note_content</xsl:attribute>
+      <span class="ltx_note_outer">
+        <span class="ltx_note_content">
           <xsl:call-template name="note-mark">
             <xsl:with-param name="context" select="$innercontext"/>
           </xsl:call-template>
           <xsl:if test="not(@role = 'footnote')">
-            <xsl:element name="span" namespace="{$html_ns}">
-              <xsl:attribute name="class">ltx_note_type</xsl:attribute>
+            <span class="ltx_note_type">
               <xsl:value-of select="@role"/>
               <xsl:text>: </xsl:text>
-            </xsl:element>
+            </span>
           </xsl:if>
           <xsl:apply-templates>
             <xsl:with-param name="context" select="$innercontext"/>
@@ -64,21 +62,20 @@
           <xsl:apply-templates select="." mode="end">
             <xsl:with-param name="context" select="$innercontext"/>
           </xsl:apply-templates>
-        </xsl:element>
-      </xsl:element>
-    </xsl:element>
+        </span>
+      </span>
+    </span>
   </xsl:template>
 
   <xsl:preserve-space elements="ltx:note-mark"/>
   <xsl:template name="note-mark">
-    <xsl:element name="sup" namespace="{$html_ns}">
-      <xsl:attribute name="class">ltx_note_mark</xsl:attribute>
+    <sup class="ltx_note_mark">
       <xsl:choose>
         <xsl:when test="ltx:tags/ltx:tag[not(@role)]"><xsl:value-of select="ltx:tags/ltx:tag[not(@role)]"/></xsl:when>
         <xsl:when test="@mark"><xsl:value-of select="@mark"/></xsl:when>
-        <xsl:otherwise>&#x2020;</xsl:otherwise>
+        <xsl:otherwise>†</xsl:otherwise>
       </xsl:choose>
-    </xsl:element>
+    </sup>
   </xsl:template>
 
   <!-- disappears -->
@@ -88,7 +85,7 @@
   <xsl:preserve-space elements="ltx:ERROR"/>
   <xsl:template match="ltx:ERROR">
     <xsl:param name="context"/>
-    <xsl:element name="span" namespace="{$html_ns}">
+    <span>
       <xsl:variable name="innercontext" select="'inline'"/><!-- override -->
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes"/>
@@ -101,7 +98,7 @@
       <xsl:apply-templates select="." mode="end">
         <xsl:with-param name="context" select="$innercontext"/>
       </xsl:apply-templates>
-    </xsl:element>
+    </span>
   </xsl:template>
 
   <!-- The indexmark disappears -->
@@ -111,7 +108,7 @@
   <xsl:preserve-space elements="ltx:indexphrase"/>
   <xsl:template match="ltx:indexphrase">
     <xsl:param name="context"/>
-    <xsl:element name="span" namespace="{$html_ns}">
+    <span>
       <xsl:variable name="innercontext" select="'inline'"/><!-- override -->
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes"/>
@@ -124,7 +121,7 @@
       <xsl:apply-templates select="." mode="end">
         <xsl:with-param name="context" select="$innercontext"/>
       </xsl:apply-templates>
-    </xsl:element>
+    </span>
   </xsl:template>
 
   <!-- Typically will end up with css display:none -->

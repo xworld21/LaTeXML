@@ -14,6 +14,7 @@
 -->
 <xsl:stylesheet
     version     = "1.0"
+    xmlns       = "http://www.w3.org/1999/xhtml"
     xmlns:xsl   = "http://www.w3.org/1999/XSL/Transform"
     xmlns:ltx   = "http://dlmf.nist.gov/LaTeXML"
     xmlns:f     = "http://dlmf.nist.gov/LaTeXML/functions"
@@ -52,7 +53,7 @@
 
   <xsl:template match="ltx:inline-para">
     <xsl:param name="context"/>
-    <xsl:element name="span" namespace="{$html_ns}">
+    <span>
       <xsl:variable name="innercontext" select="'inline'"/><!-- override -->
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes"/>
@@ -65,7 +66,7 @@
       <xsl:apply-templates select="." mode="end">
         <xsl:with-param name="context" select="$innercontext"/>
       </xsl:apply-templates>
-    </xsl:element>
+    </span>
   </xsl:template>
 
   <!-- ======================================================================
@@ -82,7 +83,7 @@
   <xsl:template match="ltx:theorem | ltx:proof">
     <xsl:param name="context"/>
     <xsl:text>&#x0A;</xsl:text>
-    <xsl:element name="div" namespace="{$html_ns}">
+    <div>
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes"/>
       <xsl:apply-templates select="." mode="begin">
@@ -95,7 +96,7 @@
         <xsl:with-param name="context" select="$context"/>
       </xsl:apply-templates>
       <xsl:text>&#x0A;</xsl:text>
-    </xsl:element>
+    </div>
   </xsl:template>
 
   <!-- ======================================================================
@@ -112,13 +113,12 @@
     <xsl:text>&#x0A;</xsl:text>
     <xsl:choose>
       <xsl:when test="@angle | @xtranslate | @ytranslate | @xscale | @yscale ">
-        <xsl:element name="div" namespace="{$html_ns}">
+        <div>
           <xsl:call-template name="add_id"/>
           <xsl:call-template name="add_attributes">
             <xsl:with-param name="extra_classes" select="'ltx_transformed_outer'"/>
           </xsl:call-template>
-          <xsl:element name="div" namespace="{$html_ns}">
-            <xsl:attribute name="class">ltx_transformed_inner</xsl:attribute>
+          <div class="ltx_transformed_inner">
             <xsl:call-template name="add_transformable_attributes"/>
             <xsl:apply-templates select="." mode="begin">
               <xsl:with-param name="context" select="$context"/>
@@ -128,8 +128,8 @@
                 <xsl:with-param name="context" select="$context"/>
               </xsl:apply-templates>
             </xsl:element>
-          </xsl:element>
-        </xsl:element>
+          </div>
+        </div>
       </xsl:when>
       <xsl:otherwise>
         <xsl:element name="{f:if($USE_HTML5,f:blockelement($context,'figure'),'div')}" namespace="{$html_ns}">
@@ -157,25 +157,21 @@
                                      | following-sibling::ltx:graphics]">
           <xsl:with-param name="context" select="$context"/>
         </xsl:apply-templates>
-        <xsl:element name="table" namespace="{$html_ns}">
+        <table style="width:100%;">
           <!-- maybe even more, like display:table ? or some class ? -->
-          <xsl:attribute name="style">width:100%;</xsl:attribute>
           <xsl:text>&#x0A;</xsl:text>
-          <xsl:element name="tr" namespace="{$html_ns}">
+          <tr>
             <xsl:for-each select="ltx:figure | ltx:table | ltx:float | ltx:graphics">
               <xsl:text>&#x0A;</xsl:text>
-              <xsl:element name="td" namespace="{$html_ns}">
-                <xsl:attribute name="class">
-                  <xsl:value-of select="concat('ltx_sub',local-name(.))"/>
-                </xsl:attribute>
+              <td class="{concat('ltx_sub',local-name(.))}">
                 <xsl:apply-templates select=".">
                   <xsl:with-param name="context" select="$context"/>
                 </xsl:apply-templates>
-              </xsl:element>
+              </td>
             </xsl:for-each>
-          </xsl:element>
+          </tr>
           <xsl:text>&#x0A;</xsl:text>
-        </xsl:element>
+        </table>
         <xsl:apply-templates select="ltx:caption[preceding-sibling::ltx:figure
                                      | preceding-sibling::ltx:table
                                      | preceding-sibling::ltx:float

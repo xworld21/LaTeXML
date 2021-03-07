@@ -14,6 +14,7 @@
 -->
 <xsl:stylesheet
     version     = "1.0"
+    xmlns       = "http://www.w3.org/1999/xhtml"
     xmlns:xsl   = "http://www.w3.org/1999/XSL/Transform"
     xmlns:ltx   = "http://dlmf.nist.gov/LaTeXML"
     xmlns:func  = "http://exslt.org/functions"
@@ -34,7 +35,7 @@
 
   <xsl:template match="ltx:tag">
     <xsl:param name="context"/>
-    <xsl:element name="span" namespace="{$html_ns}">
+    <span>
       <xsl:variable name="innercontext" select="'inline'"/><!-- override -->
       <xsl:call-template name="add_attributes"/>
       <xsl:apply-templates select="." mode="begin">
@@ -48,7 +49,7 @@
       <xsl:apply-templates select="." mode="end">
         <xsl:with-param name="context" select="$innercontext"/>
       </xsl:apply-templates>
-    </xsl:element>
+    </span>
   </xsl:template>
 
   <!-- Most of these templates generate block-level elements but may appear
@@ -150,15 +151,15 @@
     <xsl:param name="context"/>
     <xsl:element name="{f:blockelement($context,'div')}" namespace="{$html_ns}">
       <xsl:attribute name="class">ltx_listing_data</xsl:attribute>
-      <xsl:element name="a" namespace="{$html_ns}">
+      <a>
         <xsl:call-template name="add_data_attribute">
           <xsl:with-param name="name" select="'href'"/>
         </xsl:call-template>
         <xsl:if test="$USE_HTML5='true'">
           <xsl:attribute name="download"/>
         </xsl:if>
-        <xsl:text>&#x2B07;</xsl:text>
-      </xsl:element>
+        <xsl:text>⬇</xsl:text>
+      </a>
     </xsl:element>
   </xsl:template>
 
@@ -203,15 +204,12 @@
   <!-- Equation numbers on left, or default right? -->
   <xsl:template match="ltx:equation/ltx:tags/ltx:tag | ltx:equationgroup/ltx:tags/ltx:tag">
     <xsl:param name="context"/>
-    <xsl:element name="span" namespace="{$html_ns}">
+    <span class="ltx_tag ltx_tag_{local-name(../..)} {f:if(ancestor-or-self::*[contains(@class,'ltx_leqno')],'ltx_align_left','ltx_align_right')}">
       <xsl:variable name="innercontext" select="'inline'"/>
-      <xsl:attribute name="class">ltx_tag ltx_tag_<xsl:value-of select="local-name(../..)"/>
-      <xsl:text> </xsl:text>
-      <xsl:value-of select="f:if(ancestor-or-self::*[contains(@class,'ltx_leqno')],'ltx_align_left','ltx_align_right')"/></xsl:attribute>
       <xsl:apply-templates>    
         <xsl:with-param name="context" select="$innercontext"/>
       </xsl:apply-templates>
-    </xsl:element>
+    </span>
   </xsl:template>
 
   <!-- ======================================================================
@@ -321,7 +319,7 @@
           <xsl:with-param name="context" select="$context"/>
         </xsl:apply-templates>
       </xsl:if>
-      <xsl:element name="span" namespace="{$html_ns}">
+      <span>
         <xsl:variable name="context" select="'inline'"/><!-- override -->
         <!-- This should cover: ltx:Math, ltx:MathFork, ltx:text & Misc
              (ie. all of equation_model EXCEPT Meta & EquationMeta) -->
@@ -331,7 +329,7 @@
                                      | ltx:tabular | ltx:picture" >
           <xsl:with-param name="context" select="$context"/>
         </xsl:apply-templates>
-      </xsl:element>
+      </span>
       <xsl:if test="ltx:tags and $eqnopos='right'">
         <xsl:apply-templates select="ltx:tags">
           <xsl:with-param name="context" select="$context"/>
@@ -947,14 +945,14 @@ ancestor-or-self::ltx:equationgroup[position()=1][ltx:tags]/descendant::ltx:equa
 
   <xsl:template match="ltx:constraint">
     <xsl:param name="context"/>
-    <xsl:element name="span" namespace="{$html_ns}">
+    <span>
       <xsl:variable name="context" select="'inline'"/><!-- override -->
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes"/>
       <xsl:apply-templates>
         <xsl:with-param name="context" select="$context"/>
       </xsl:apply-templates>
-    </xsl:element>
+    </span>
   </xsl:template>
 
   <!-- NOTE: This is pretty wacky.  Maybe we should move the text inside the equation? -->
@@ -1182,7 +1180,7 @@ ancestor-or-self::ltx:equationgroup[position()=1][ltx:tags]/descendant::ltx:equa
   <xsl:template match="ltx:inline-itemize | ltx:inline-enumerate | ltx:inline-description">
     <xsl:param name="context"/>
     <xsl:text>&#x0A;</xsl:text>
-    <xsl:element name="span" namespace="{$html_ns}">
+    <span>
       <xsl:variable name="innercontext" select="'inline'"/><!-- override -->
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes"/>
@@ -1196,7 +1194,7 @@ ancestor-or-self::ltx:equationgroup[position()=1][ltx:tags]/descendant::ltx:equa
         <xsl:with-param name="context" select="$innercontext"/>
       </xsl:apply-templates>
       <xsl:text>&#x0A;</xsl:text>
-    </xsl:element>
+    </span>
   </xsl:template>
 
   <xsl:template match="ltx:inline-item">
@@ -1204,7 +1202,7 @@ ancestor-or-self::ltx:equationgroup[position()=1][ltx:tags]/descendant::ltx:equa
     <xsl:text>&#x0A;</xsl:text>
     <xsl:choose>
       <xsl:when test="child::ltx:tags">
-        <xsl:element name="span" namespace="{$html_ns}">
+        <span>
           <xsl:variable name="innercontext" select="'inline'"/><!-- override -->
           <xsl:call-template name="add_id"/>
           <xsl:call-template name="add_attributes"/>
@@ -1221,20 +1219,19 @@ ancestor-or-self::ltx:equationgroup[position()=1][ltx:tags]/descendant::ltx:equa
           <xsl:apply-templates select="." mode="end">
             <xsl:with-param name="context" select="$innercontext"/>
           </xsl:apply-templates>
-        </xsl:element>
+        </span>
       </xsl:when>
       <xsl:otherwise>
-        <xsl:element name="span" namespace="{$html_ns}">
+        <span>
           <xsl:variable name="innercontext" select="'inline'"/><!-- override -->
           <xsl:call-template name="add_id"/>
           <xsl:call-template name="add_attributes"/>
           <xsl:apply-templates select="." mode="begin">
             <xsl:with-param name="context" select="$innercontext"/>
           </xsl:apply-templates>
-          <xsl:element name="span" namespace="{$html_ns}">
-            <xsl:attribute name="class">ltx_tag</xsl:attribute>
-            <xsl:text>&#x2022;</xsl:text>
-          </xsl:element>
+          <span class="ltx_tag">
+            <xsl:text>•</xsl:text>
+          </span>
           <xsl:text> </xsl:text>
           <xsl:apply-templates>
             <xsl:with-param name="context" select="$innercontext"/>
@@ -1242,7 +1239,7 @@ ancestor-or-self::ltx:equationgroup[position()=1][ltx:tags]/descendant::ltx:equa
           <xsl:apply-templates select="." mode="end">
             <xsl:with-param name="context" select="$innercontext"/>
           </xsl:apply-templates>
-        </xsl:element>
+        </span>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>
@@ -1265,12 +1262,10 @@ ancestor-or-self::ltx:equationgroup[position()=1][ltx:tags]/descendant::ltx:equa
     <xsl:text>&#x0A;</xsl:text>
     <xsl:choose>
       <xsl:when test="($miditem &lt; count($items)) or not(parent::ltx:chapter)">
-        <xsl:element name="div" namespace="{$html_ns}">
+        <div class="ltx_page_columns">
           <xsl:call-template name="add_id"/>
-          <xsl:attribute name='class'>ltx_page_columns</xsl:attribute>
           <xsl:text>&#x0A;</xsl:text>
-          <xsl:element name="div" namespace="{$html_ns}">
-            <xsl:attribute name='class'>ltx_page_column1</xsl:attribute>
+          <div class="ltx_page_column1">
             <xsl:text>&#x0A;</xsl:text>
             <xsl:element name="{$wrapper}" namespace="{$html_ns}">
               <xsl:call-template name="add_attributes"/>
@@ -1286,10 +1281,9 @@ ancestor-or-self::ltx:equationgroup[position()=1][ltx:tags]/descendant::ltx:equa
               <xsl:text>&#x0A;</xsl:text>
             </xsl:element>
             <xsl:text>&#x0A;</xsl:text>
-          </xsl:element>
+          </div>
           <xsl:text>&#x0A;</xsl:text>
-          <xsl:element name="div" namespace="{$html_ns}">
-            <xsl:attribute name='class'>ltx_page_column2</xsl:attribute>
+          <div class="ltx_page_column2">
             <xsl:text>&#x0A;</xsl:text>
             <xsl:element name="{$wrapper}" namespace="{$html_ns}">
               <xsl:call-template name="add_attributes"/>
@@ -1305,9 +1299,9 @@ ancestor-or-self::ltx:equationgroup[position()=1][ltx:tags]/descendant::ltx:equa
               <xsl:text>&#x0A;</xsl:text>
             </xsl:element>
             <xsl:text>&#x0A;</xsl:text>
-          </xsl:element>
+          </div>
           <xsl:text>&#x0A;</xsl:text>
-        </xsl:element>
+        </div>
       </xsl:when>
       <xsl:otherwise>
         <xsl:element name="{$wrapper}" namespace="{$html_ns}">
@@ -1331,7 +1325,7 @@ ancestor-or-self::ltx:equationgroup[position()=1][ltx:tags]/descendant::ltx:equa
   <xsl:template match="ltx:pagination">
     <xsl:param name="context"/>
     <xsl:text>&#x0A;</xsl:text>
-    <xsl:element name="div" namespace="{$html_ns}">
+    <div>
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes"/>
       <xsl:apply-templates select="." mode="begin">
@@ -1340,7 +1334,7 @@ ancestor-or-self::ltx:equationgroup[position()=1][ltx:tags]/descendant::ltx:equa
       <xsl:apply-templates select="." mode="end">
         <xsl:with-param name="context" select="$context"/>
       </xsl:apply-templates>
-    </xsl:element>
+    </div>
   </xsl:template>
 
 </xsl:stylesheet>
