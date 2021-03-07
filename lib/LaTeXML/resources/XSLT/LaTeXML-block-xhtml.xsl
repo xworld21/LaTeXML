@@ -151,13 +151,10 @@
     <xsl:param name="context"/>
     <xsl:element name="{f:blockelement($context,'div')}" namespace="{$html_ns}">
       <xsl:attribute name="class">ltx_listing_data</xsl:attribute>
-      <a>
+      <a download="">
         <xsl:call-template name="add_data_attribute">
           <xsl:with-param name="name" select="'href'"/>
         </xsl:call-template>
-        <xsl:if test="$USE_HTML5='true'">
-          <xsl:attribute name="download"/>
-        </xsl:if>
         <xsl:text>⬇</xsl:text>
       </a>
     </xsl:element>

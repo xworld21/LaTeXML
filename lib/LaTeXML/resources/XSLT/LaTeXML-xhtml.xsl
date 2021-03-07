@@ -58,4 +58,7 @@
     </xsl:element>
   </xsl:template>
 
+  <!-- remove download attribute -->
+  <xsl:template match="@download" mode="alter"/>
+
 </xsl:stylesheet>
