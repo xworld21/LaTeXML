@@ -33,6 +33,11 @@
        Redefine the root template ("/") and add prefixed namespace declarations
        (eg.xmlns:m="http://www.w3.org/1998/Math/MathML") -->
 
+  <xsl:template match="/" mode="head-content-type">
+    <xsl:text>&#x0A;</xsl:text>
+    <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=UTF-8"/>
+  </xsl:template>
+
   <xsl:template match="/">
     <xsl:call-template name="alter">
       <xsl:with-param name="fragment">
