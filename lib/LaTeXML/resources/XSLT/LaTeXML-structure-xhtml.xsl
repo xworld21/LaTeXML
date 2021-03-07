@@ -58,7 +58,7 @@
                        | ltx:slide">
     <xsl:param name="context"/>
     <xsl:text>&#x0A;</xsl:text>
-    <xsl:element name="{f:if($USE_HTML5,f:if(local-name(.) = 'document','article','section'),'div')}"
+    <xsl:element name="{f:if(local-name(.) = 'document','article','section')}"
                  namespace="{$html_ns}">
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes"/>
