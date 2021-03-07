@@ -14,9 +14,11 @@
 -->
 <xsl:stylesheet
     version   = "1.0"
+    xmlns       = "http://www.w3.org/1999/xhtml"
+    xmlns:html  = "http://www.w3.org/1999/xhtml"
     xmlns:xsl = "http://www.w3.org/1999/XSL/Transform"
     xmlns:ltx = "http://dlmf.nist.gov/LaTeXML"
-    exclude-result-prefixes="ltx">
+    exclude-result-prefixes="html ltx">
 
   <!-- Include all LaTeXML to xhtml modules -->
   <xsl:import href="LaTeXML-all-xhtml.xsl"/>
@@ -37,7 +39,6 @@
   <xsl:param name="USE_MathML"    ></xsl:param>
   <xsl:param name="USE_SVG"       ></xsl:param>
 
-  <!-- strip namespace and prefixes -->
   <xsl:template match="/">
     <xsl:call-template name="alter">
       <xsl:with-param name="fragment">
@@ -46,20 +47,21 @@
     </xsl:call-template>
   </xsl:template>
 
-  <xsl:template match="*" mode="alter">
-    <xsl:element name="{local-name()}">
-      <xsl:apply-templates select="@*|node()" mode="alter"/>
-    </xsl:element>
-  </xsl:template>
-
   <!-- replace HTML5 tags with divs -->
-  <xsl:template match="figure | figcaption |
-                       nav | header | footer |
-                       article | section"
+  <xsl:template match="html:figure | html:figcaption |
+                       html:nav | html:header | html:footer |
+                       html:article | html:section"
                 mode="alter">
     <div>
       <xsl:apply-templates select="@*|node()" mode="alter"/>
     </div>
+  </xsl:template>
+
+  <!-- strip prefixes -->
+  <xsl:template match="*" mode="alter">
+    <xsl:element name="{local-name()}" namespace="{namespace-uri()}">
+      <xsl:apply-templates select="@*|node()" mode="alter"/>
+    </xsl:element>
   </xsl:template>
 
 </xsl:stylesheet>
