@@ -47,6 +47,11 @@
     </xsl:call-template>
   </xsl:template>
 
+  <xsl:template match="/" mode="head-content-type">
+    <xsl:text>&#x0A;</xsl:text>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+  </xsl:template>
+
   <!-- replace HTML5 tags with divs -->
   <xsl:template match="html:figure | html:figcaption |
                        html:nav | html:header | html:footer |

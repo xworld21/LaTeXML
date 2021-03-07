@@ -432,17 +432,7 @@
   </xsl:template>
 
   <!-- Generate a meta indicating the content-type -->
-  <xsl:template match="/" mode="head-content-type">
-    <xsl:text>&#x0A;</xsl:text>
-    <xsl:choose>
-      <!-- HTML5 in XML syntax: content-type and charset not allowed -->
-      <xsl:when test="$USE_NAMESPACES='true' and $USE_HTML5='true'" />
-      <xsl:otherwise>
-        <!-- HTML(4|5) or XHTML1.1: content-type and charset -->
-        <meta http-equiv="Content-Type" content="{f:if($USE_NAMESPACES,'application/xhtml+xml','text/html')}; charset=UTF-8"/>
-      </xsl:otherwise>
-    </xsl:choose>
-  </xsl:template>
+  <xsl:template match="/" mode="head-content-type"/>
 
   <!-- Generate an "icon" link for the head -->
   <xsl:template match="/" mode="head-icon">

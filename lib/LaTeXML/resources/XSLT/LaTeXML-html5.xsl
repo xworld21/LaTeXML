@@ -39,6 +39,11 @@
     <xsl:text disable-output-escaping='yes'>&lt;!DOCTYPE html></xsl:text>
   </xsl:template>
 
+  <xsl:template match="/" mode="head-content-type">
+    <xsl:text>&#x0A;</xsl:text>
+    <meta charset="UTF-8"/>
+  </xsl:template>
+
   <!-- strip namespace and prefixes -->
   <xsl:template match="/">
     <xsl:call-template name="alter">
