@@ -14,6 +14,7 @@
 -->
 <xsl:stylesheet
     version     = "1.0"
+    xmlns       = "http://www.w3.org/1999/xhtml"
     xmlns:xsl   = "http://www.w3.org/1999/XSL/Transform"
     xmlns:ltx   = "http://dlmf.nist.gov/LaTeXML"
     xmlns:func  = "http://exslt.org/functions"
@@ -49,8 +50,7 @@
           <xsl:call-template name="add_attributes">
             <xsl:with-param name="extra_classes" select="'ltx_transformed_outer'"/>
           </xsl:call-template>
-          <xsl:element name="span" namespace="{$html_ns}">
-            <xsl:attribute name="class">ltx_transformed_inner</xsl:attribute>
+          <span class="ltx_transformed_inner">
             <xsl:call-template name="add_transformable_attributes"/>
             <xsl:apply-templates select="." mode="begin">
               <xsl:with-param name="context" select="$innercontext"/>
@@ -62,11 +62,11 @@
               <xsl:with-param name="context" select="$innercontext"/>
             </xsl:apply-templates>
             <xsl:text>&#x0A;</xsl:text>
-          </xsl:element>
+          </span>
         </xsl:element>
       </xsl:when>
       <xsl:otherwise>
-        <xsl:element name="span" namespace="{$html_ns}">
+        <span>
           <xsl:variable name="innercontext" select="'inline'"/><!-- override -->
           <xsl:call-template name="add_id"/>
           <xsl:call-template name="add_attributes"/>
@@ -80,7 +80,7 @@
             <xsl:with-param name="context" select="$innercontext"/>
           </xsl:apply-templates>
           <xsl:text>&#x0A;</xsl:text>
-        </xsl:element>
+        </span>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>
@@ -89,7 +89,7 @@
     <xsl:param name="context"/>
     <xsl:choose>
       <xsl:when test="contains(text(),'&#xA;')">
-        <xsl:element name="pre" namespace="{$html_ns}">
+        <pre>
           <xsl:call-template name="add_id"/>
           <xsl:call-template name="add_attributes"/>
           <xsl:apply-templates select="." mode="begin">
@@ -101,10 +101,10 @@
           <xsl:apply-templates select="." mode="end">
             <xsl:with-param name="context" select="$context"/>
           </xsl:apply-templates>
-        </xsl:element>
+        </pre>
       </xsl:when>
       <xsl:otherwise>
-        <xsl:element name="code" namespace="{$html_ns}">
+        <code>
           <xsl:call-template name="add_id"/>
           <xsl:call-template name="add_attributes"/>
           <xsl:apply-templates select="." mode="begin">
@@ -116,7 +116,7 @@
           <xsl:apply-templates select="." mode="end">
             <xsl:with-param name="context" select="$context"/>
           </xsl:apply-templates>
-        </xsl:element>
+        </code>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>
@@ -124,7 +124,7 @@
   <xsl:template match="ltx:break">
     <xsl:param name="context"/>
     <xsl:text>&#x0A;</xsl:text>
-    <xsl:element name="br" namespace="{$html_ns}">
+    <br>
       <xsl:call-template name="add_attributes"/>
       <xsl:apply-templates select="." mode="begin">
         <xsl:with-param name="context" select="$context"/>
@@ -132,7 +132,7 @@
       <xsl:apply-templates select="." mode="end">
         <xsl:with-param name="context" select="$context"/>
       </xsl:apply-templates>
-    </xsl:element>
+    </br>
   </xsl:template>
 
   <!-- ======================================================================
@@ -141,8 +141,7 @@
 
   <xsl:template match="ltx:graphics">
     <xsl:param name="context"/>
-    <xsl:element name="img" namespace="{$html_ns}">
-      <xsl:attribute name="src"><xsl:value-of select="f:url(@imagesrc)"/></xsl:attribute>
+    <img src="{f:url(@imagesrc)}">
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes">
         <xsl:with-param name="extra_style">
@@ -182,7 +181,7 @@
       <xsl:apply-templates select="." mode="end">
         <xsl:with-param name="context" select="$context"/>
       </xsl:apply-templates>
-    </xsl:element>
+    </img>
   </xsl:template>
 
   <!-- svg graphics should use the object tag, rather than img,
@@ -200,9 +199,7 @@
         <xsl:otherwise/>
       </xsl:choose>
     </xsl:variable>
-    <xsl:element name="object" namespace="{$html_ns}">
-      <xsl:attribute name="type">image/svg+xml</xsl:attribute>
-      <xsl:attribute name="data"><xsl:value-of select="f:url(@imagesrc)"/></xsl:attribute>
+    <object type="image/svg+xml" data="{f:url(@imagesrc)}">
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes">
         <xsl:with-param name="extra_style">
@@ -241,7 +238,7 @@
       <xsl:apply-templates select="." mode="end">
         <xsl:with-param name="context" select="$context"/>
       </xsl:apply-templates>
-    </xsl:element>
+    </object>
   </xsl:template>
 
   <!-- ======================================================================

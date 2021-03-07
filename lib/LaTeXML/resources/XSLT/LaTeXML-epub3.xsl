@@ -14,6 +14,7 @@
 -->
 <xsl:stylesheet
     version   = "1.0"
+    xmlns     = "http://www.w3.org/1999/xhtml"
     xmlns:xsl = "http://www.w3.org/1999/XSL/Transform"
     xmlns:ltx = "http://dlmf.nist.gov/LaTeXML"
     exclude-result-prefixes="ltx">
@@ -34,13 +35,13 @@
   <!-- Do not copy the RDFa prefix, but proceed as usual -->
   <xsl:template match="/">
     <xsl:apply-templates select="." mode="doctype"/>
-    <xsl:element name="html" namespace="{$html_ns}">
+    <html>
       <xsl:apply-templates select="." mode="begin"/>
       <xsl:apply-templates select="." mode="head"/>
       <xsl:apply-templates select="." mode="body"/>
       <xsl:apply-templates select="." mode="end"/>
       <xsl:text>&#x0A;</xsl:text>
-    </xsl:element>
+    </html>
   </xsl:template>
 
   <!-- RDFa is invalid in EPUB3, so just skip over it -->

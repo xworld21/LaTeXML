@@ -14,6 +14,7 @@
 -->
 <xsl:stylesheet
     version     = "1.0"
+    xmlns       = "http://www.w3.org/1999/xhtml"
     xmlns:xsl   = "http://www.w3.org/1999/XSL/Transform"
     xmlns:ltx   = "http://dlmf.nist.gov/LaTeXML"
     xmlns:f     = "http://dlmf.nist.gov/LaTeXML/functions"
@@ -33,7 +34,7 @@
   <xsl:preserve-space elements="ltx:text"/>
   <xsl:template match="ltx:text">
     <xsl:param name="context"/>
-    <xsl:element name="span" namespace="{$html_ns}">
+    <span>
       <xsl:variable name="innercontext" select="'inline'"/><!-- override -->
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes"/>
@@ -46,7 +47,7 @@
       <xsl:apply-templates select="." mode="end">
         <xsl:with-param name="context" select="$innercontext"/>
       </xsl:apply-templates>
-    </xsl:element>
+    </span>
   </xsl:template>
 
   <!-- Special case: all OTHER attributes have to be outside the "hidden"
@@ -54,12 +55,11 @@
        Note that "contains" is NOT the right test for @class....-->
   <xsl:template match="ltx:text[contains(@class,'ltx_phantom')]">
     <xsl:param name="context"/>
-    <xsl:element name="span" namespace="{$html_ns}">
+    <span>
       <xsl:variable name="innercontext" select="'inline'"/><!-- override -->
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes"/>
-      <xsl:element name="span" namespace="{$html_ns}">
-        <xsl:attribute name="style">visibility:hidden</xsl:attribute>
+      <span style="visibility:hidden">
         <xsl:apply-templates select="." mode="begin">
           <xsl:with-param name="context" select="$innercontext"/>
         </xsl:apply-templates>
@@ -69,14 +69,14 @@
         <xsl:apply-templates select="." mode="end">
           <xsl:with-param name="context" select="$innercontext"/>
         </xsl:apply-templates>
-      </xsl:element>
-    </xsl:element>
+      </span>
+    </span>
   </xsl:template>
 
   <xsl:preserve-space elements="ltx:emph"/>
   <xsl:template match="ltx:emph">
     <xsl:param name="context"/>
-    <xsl:element name="em" namespace="{$html_ns}">
+    <em>
       <xsl:variable name="innercontext" select="'inline'"/><!-- override -->
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes"/>
@@ -89,13 +89,13 @@
       <xsl:apply-templates select="." mode="end">
         <xsl:with-param name="context" select="$innercontext"/>
       </xsl:apply-templates>
-    </xsl:element>
+    </em>
   </xsl:template>
 
   <xsl:preserve-space elements="ltx:del"/>
   <xsl:template match="ltx:del">
     <xsl:param name="context"/>
-    <xsl:element name="del" namespace="{$html_ns}">
+    <del>
       <xsl:variable name="innercontext" select="'inline'"/><!-- override -->
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes"/>
@@ -108,13 +108,13 @@
       <xsl:apply-templates select="." mode="end">
         <xsl:with-param name="context" select="$innercontext"/>
       </xsl:apply-templates>
-    </xsl:element>
+    </del>
   </xsl:template>
 
   <xsl:preserve-space elements="ltx:sub"/>
   <xsl:template match="ltx:sub">
     <xsl:param name="context"/>
-    <xsl:element name="sub" namespace="{$html_ns}">
+    <sub>
       <xsl:variable name="innercontext" select="'inline'"/><!-- override -->
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes"/>
@@ -127,13 +127,13 @@
       <xsl:apply-templates select="." mode="end">
         <xsl:with-param name="context" select="$innercontext"/>
       </xsl:apply-templates>
-    </xsl:element>
+    </sub>
   </xsl:template>
 
   <xsl:preserve-space elements="ltx:sup"/>
   <xsl:template match="ltx:sup">
     <xsl:param name="context"/>
-    <xsl:element name="sup" namespace="{$html_ns}">
+    <sup>
       <xsl:variable name="innercontext" select="'inline'"/><!-- override -->
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes"/>
@@ -146,7 +146,7 @@
       <xsl:apply-templates select="." mode="end">
         <xsl:with-param name="context" select="$innercontext"/>
       </xsl:apply-templates>
-    </xsl:element>
+    </sup>
   </xsl:template>
 
   <xsl:template match="ltx:glossarydefinition"/>
@@ -154,12 +154,11 @@
   <xsl:preserve-space elements="ltx:glossaryref"/>
   <xsl:template match="ltx:glossaryref[@href]">
     <xsl:param name="context"/>
-    <xsl:element name="a" namespace="{$html_ns}">
-      <xsl:attribute name="href"><xsl:value-of select="f:url(@href)"/></xsl:attribute>
+    <a href="{f:url(@href)}">
       <xsl:apply-templates select="." mode="inner">
         <xsl:with-param name="context" select="context"/>
       </xsl:apply-templates>
-    </xsl:element>
+    </a>
   </xsl:template>
 
   <xsl:template match="ltx:glossaryref">
@@ -205,7 +204,7 @@
 
   <xsl:template match="ltx:rule">
     <xsl:param name="context"/>
-    <xsl:element name="span" namespace="{$html_ns}">
+    <span>
       <xsl:variable name="innercontext" select="'inline'"/><!-- override -->
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes"/>
@@ -216,7 +215,7 @@
         <xsl:with-param name="context" select="$innercontext"/>
       </xsl:apply-templates>
       <xsl:if test="string(@width)!='0.0pt'">&#xA0;</xsl:if>
-    </xsl:element>
+    </span>
   </xsl:template>
 
   <xsl:preserve-space elements="ltx:ref"/>
@@ -224,7 +223,7 @@
     <xsl:param name="context"/>
     <xsl:choose>
       <xsl:when test="not(@href) or @href=''">
-        <xsl:element name="span" namespace="{$html_ns}">
+        <span>
           <xsl:variable name="innercontext" select="'inline'"/><!-- override -->
           <xsl:call-template name="add_id"/>
           <xsl:call-template name="add_attributes">
@@ -239,13 +238,11 @@
           <xsl:apply-templates select="." mode="end">
             <xsl:with-param name="context" select="$innercontext"/>
           </xsl:apply-templates>
-        </xsl:element>
+        </span>
       </xsl:when>
       <xsl:otherwise>
-        <xsl:element name="a" namespace="{$html_ns}">
+        <a href="{f:url(@href)}" title="{@title}">
           <xsl:variable name="innercontext" select="'inline'"/><!-- override -->
-          <xsl:attribute name="href"><xsl:value-of select="f:url(@href)"/></xsl:attribute>
-          <xsl:attribute name="title"><xsl:value-of select="@title"/></xsl:attribute>
           <xsl:call-template name="add_id"/>
           <xsl:call-template name="add_attributes"/>
           <xsl:apply-templates select="." mode="begin">
@@ -257,14 +254,14 @@
           <xsl:apply-templates select="." mode="end">
             <xsl:with-param name="context" select="$innercontext"/>
           </xsl:apply-templates>
-        </xsl:element>
+        </a>
       </xsl:otherwise>
     </xsl:choose>    
   </xsl:template>
 
   <xsl:template match="ltx:ref//ltx:ref">
     <xsl:param name="context"/>
-    <xsl:element name="span" namespace="{$html_ns}">
+    <span>
       <xsl:variable name="innercontext" select="'inline'"/><!-- override -->
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes"/>
@@ -277,15 +274,14 @@
       <xsl:apply-templates select="." mode="end">
         <xsl:with-param name="context" select="$innercontext"/>
       </xsl:apply-templates>
-    </xsl:element>
+    </span>
   </xsl:template>
 
   <xsl:preserve-space elements="ltx:anchor"/>
   <xsl:template match="ltx:anchor">
     <xsl:param name="context"/>
-    <xsl:element name="a" namespace="{$html_ns}">
+    <a name="{@xml:id}">
       <xsl:variable name="innercontext" select="'inline'"/><!-- override -->
-      <xsl:attribute name="name"><xsl:value-of select="@xml:id"/></xsl:attribute>
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes"/>
       <xsl:apply-templates select="." mode="begin">
@@ -297,7 +293,7 @@
       <xsl:apply-templates select="." mode="end">
         <xsl:with-param name="context" select="$innercontext"/>
       </xsl:apply-templates>
-    </xsl:element>
+    </a>
   </xsl:template>
 
   <!-- avoid empty cite's from nocite -->
@@ -305,7 +301,7 @@
   <xsl:template match="ltx:cite"/>
   <xsl:template match="ltx:cite[child::*[not(self::ltx:bibref) or @show!='nothing']]">
     <xsl:param name="context"/>
-    <xsl:element name="cite" namespace="{$html_ns}">
+    <cite>
       <xsl:variable name="innercontext" select="'inline'"/><!-- override -->
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes"/>
@@ -318,7 +314,7 @@
       <xsl:apply-templates select="." mode="end">
         <xsl:with-param name="context" select="$innercontext"/>
       </xsl:apply-templates>
-    </xsl:element>
+    </cite>
   </xsl:template>
 
   <!-- ltx:bibref not handled, since it is translated to ref in crossref module -->

@@ -14,6 +14,7 @@
 -->
 <xsl:stylesheet
     version     = "1.0"
+    xmlns       = "http://www.w3.org/1999/xhtml"
     xmlns:xsl   = "http://www.w3.org/1999/XSL/Transform"
     xmlns:ltx   = "http://dlmf.nist.gov/LaTeXML"
     xmlns:svg   = "http://www.w3.org/2000/svg"
@@ -47,7 +48,7 @@
   </xsl:template>
 
   <xsl:template match="ltx:picture" mode="as-image">
-    <xsl:element name="img" namespace="{$html_ns}">
+    <img src="{f:url(@imagesrc)}">
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes">
         <xsl:with-param name="extra_style">
@@ -56,9 +57,6 @@
           </xsl:if>
         </xsl:with-param>
       </xsl:call-template>
-      <xsl:attribute name="src">
-        <xsl:value-of select="f:url(@imagesrc)"/>
-      </xsl:attribute>
       <xsl:if test="@imagewidth">
         <xsl:attribute name="width">
           <xsl:value-of select="@imagewidth"/>
@@ -74,22 +72,22 @@
           <xsl:value-of select="@tex"/>
         </xsl:attribute>
       </xsl:if>
-    </xsl:element>
+    </img>
   </xsl:template>
 
   <xsl:template match="ltx:picture" mode="as-TeX">
-    <xsl:element name="span" namespace="{$html_ns}">
+    <span>
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes">
       </xsl:call-template>      
       <xsl:value-of select="@tex"/>
-    </xsl:element>
+    </span>
   </xsl:template>
 
   <!-- Top level generated svg:svg element gets id & class from ltx:picture
        If ltx:picture/svg:svg had any of those, they got lost! -->
   <xsl:template match="ltx:picture" mode="as-svg">
-    <xsl:element name="svg" namespace="{$svg_ns}">
+    <svg:svg>
       <!-- copy id, class, style from parent ltx:picture -->
       <xsl:call-template name="add_id"/>
       <xsl:call-template name="add_attributes"/>
@@ -98,7 +96,7 @@
         <xsl:apply-templates select="." mode="copy-attribute"/>
       </xsl:for-each>
       <xsl:apply-templates select="svg:svg/*"/>
-    </xsl:element>
+    </svg:svg>
   </xsl:template>
 
   <xsl:template match="svg:*">
