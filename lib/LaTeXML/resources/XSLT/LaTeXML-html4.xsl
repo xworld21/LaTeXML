@@ -37,4 +37,19 @@
   <xsl:param name="USE_MathML"    ></xsl:param>
   <xsl:param name="USE_SVG"       ></xsl:param>
 
+  <!-- strip namespace and prefixes -->
+  <xsl:template match="/">
+    <xsl:call-template name="alter">
+      <xsl:with-param name="fragment">
+        <xsl:apply-imports/>
+      </xsl:with-param>
+    </xsl:call-template>
+  </xsl:template>
+
+  <xsl:template match="*" mode="alter">
+    <xsl:element name="{local-name()}">
+      <xsl:apply-templates select="@*|node()" mode="alter"/>
+    </xsl:element>
+  </xsl:template>
+
 </xsl:stylesheet>
