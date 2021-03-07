@@ -52,4 +52,14 @@
     </xsl:element>
   </xsl:template>
 
+  <!-- replace HTML5 tags with divs -->
+  <xsl:template match="figure | figcaption |
+                       nav | header | footer |
+                       article | section"
+                mode="alter">
+    <div>
+      <xsl:apply-templates select="@*|node()" mode="alter"/>
+    </div>
+  </xsl:template>
+
 </xsl:stylesheet>
