@@ -14,9 +14,11 @@
 -->
 <xsl:stylesheet
     version     = "1.0"
+    xmlns       = "http://www.w3.org/1999/xhtml"
+    xmlns:html  = "http://www.w3.org/1999/xhtml"
     xmlns:xsl   = "http://www.w3.org/1999/XSL/Transform"
     xmlns:ltx   = "http://dlmf.nist.gov/LaTeXML"
-    exclude-result-prefixes = "ltx">
+    exclude-result-prefixes = "html ltx">
 
   <!-- Include all LaTeXML to xhtml modules -->
   <xsl:import href="LaTeXML-all-xhtml.xsl"/>
@@ -37,6 +39,16 @@
         <xsl:apply-imports/>
       </xsl:with-param>
     </xsl:call-template>
+  </xsl:template>
+
+  <!-- replace HTML5 tags with divs -->
+  <xsl:template match="html:figure | html:figcaption |
+                       html:nav | html:header | html:footer |
+                       html:article | html:section"
+                mode="alter">
+    <div>
+      <xsl:apply-templates select="@*|node()" mode="alter"/>
+    </div>
   </xsl:template>
 
   <!-- strip prefixes -->
