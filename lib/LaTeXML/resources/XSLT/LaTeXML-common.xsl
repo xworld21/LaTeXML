@@ -682,4 +682,18 @@
     </xsl:attribute>
   </xsl:template>
 
+  <!-- Alter a fragment. By default, it produces an identical copy of the
+      fragment. Override the mode="alter" template to make the desired
+      alterations. -->
+  <xsl:template name="alter">
+    <xsl:param name="fragment"/>
+    <xsl:apply-templates select="exsl:node-set($fragment)" mode="alter"/>
+  </xsl:template>
+
+  <xsl:template match="@*|node()" mode="alter">
+    <xsl:copy>
+      <xsl:apply-templates select="@*|node()" mode="alter"/>
+    </xsl:copy>
+  </xsl:template>
+
 </xsl:stylesheet>
