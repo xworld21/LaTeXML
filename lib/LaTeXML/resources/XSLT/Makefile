@@ -12,8 +12,10 @@ diff: $(addsuffix .diff,$(OUTPUTS))
 
 orig: $(ORIGINS)
 
-LaTeXML-%.xsl: orig-LaTeXML-%.xsl $(TRANSFORM) Makefile
-	xsltproc $(TRANSFORM) $< | perl -p -e 's/&#13;/\n/g; s/&#([0-9]*);/"&#x".sprintf("%04X",$$1).";"/ge' > $@
+# xsltproc $(TRANSFORM) $< | perl -p -e 's/&#13;/\n/g; s/&#([0-9]*);/"&#x".sprintf(($$1 > 255) ? "%04X" : "%02X" ,$$1).";"/ge; if (m/^( *)<xsl:(stylesheet|output)/) { my $$indent = $$1; s/(<xsl:(stylesheet|output)|") /$$1\n$$indent  /g; };' > $@
+
+LaTeXML-%.xsl: orig-LaTeXML-%.xsl $(TRANSFORM) normalize.pl Makefile
+	./normalize.pl $(TRANSFORM) $< > $@
 
 orig-%.xsl: | %.xsl
 	mv $*.xsl orig-$*.xsl
