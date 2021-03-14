@@ -1,0 +1,70 @@
+#!/usr/bin/env perl
+
+use XML::LibXSLT;
+use XML::LibXML;
+
+XML::LibXSLT->max_depth(3000);
+
+my $xslt_parser = XML::LibXSLT->new();
+
+my $identity_xslt = <<'EoXSLT';
+<?xml version="1.0" encoding="UTF-8"?>
+<xsl:stylesheet
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  version="1.0">
+
+  <!-- force non-ASCII characters to be output as entities -->
+  <xsl:output encoding="US-ASCII"/>
+
+  <xsl:template match="/|@*|node()">
+    <xsl:copy>
+      <xsl:apply-templates select="@*|node()"/>
+    </xsl:copy>
+  </xsl:template>
+
+</xsl:stylesheet>
+EoXSLT
+
+my $transform = $xslt_parser->parse_stylesheet(
+  XML::LibXML->load_xml(string => $identity_xslt));
+my $results = $transform->transform_file($ARGV[1]);
+my $output = $transform->output_as_bytes($results);
+
+sub normalize_content {
+  my ($start, $content) = @_;
+  if ($start eq '<?xml version="1.0" encoding="') {
+    # replace encoding with utf-8
+    return "utf-8"; }
+  if ($start eq '="') {
+    # replace &gt; with > and readd newlines
+    $content =~ s/&gt;/>/g;
+    $content =~ s/([^ ])  /$1\n /g;
+    return $content; }
+  elsif ($start eq '<xsl:text>') {
+    # replace newlines with newline entity
+    $content =~ s/\n/&#x0A;/g;
+    return $content; }
+  elsif ($start eq '<xsl:stylesheet') {
+    # move attributes to own lines
+    $content =~ s/(^|") /$1\n  /g;
+    return $content; }
+  elsif ($start eq '<xsl:output') {
+    # move attributes to own lines
+    $content =~ s/(^|") /$1\n    /g;
+    return $content; } }
+
+sub normalize_entities {
+  my ($code) = @_;
+  my $digits = $code > 255 ? "4" : "2";
+  return sprintf("&#x%0${digits}X;",$code); }
+
+$output =~ s/(?|
+  (^<\?xml\ version="1.0"\ encoding=") ([^"]*) (") | # encoding declaration
+  (=") ([^"]*) (") |                                 # attribute values
+  (<xsl:text>) ([^<]*) (<) |                         # text PCDATA
+  (<xsl:(?:stylesheet|output)) ([^>]*) (>)           # attributes
+  )/$1 . normalize_content($1,$2) . $3/xge;
+
+$output =~ s/&#([0-9]*);/normalize_entities($1)/ge;
+
+print($output);
