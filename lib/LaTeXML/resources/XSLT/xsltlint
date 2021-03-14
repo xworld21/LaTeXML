@@ -27,7 +27,7 @@ EoXSLT
 
 my $transform = $xslt_parser->parse_stylesheet(
   XML::LibXML->load_xml(string => $identity_xslt));
-my $results = $transform->transform_file($ARGV[1]);
+my $results = $transform->transform_file($ARGV[0]);
 my $output = $transform->output_as_bytes($results);
 
 sub normalize_content {
