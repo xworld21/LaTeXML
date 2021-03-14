@@ -5,66 +5,138 @@ use XML::LibXML;
 
 XML::LibXSLT->max_depth(3000);
 
-my $xslt_parser = XML::LibXSLT->new();
+my $parser = XML::LibXSLT->new();
 
-my $identity_xslt = <<'EoXSLT';
+my $xslt = <<'EoXSLT';
 <?xml version="1.0" encoding="UTF-8"?>
-<xsl:stylesheet
-  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
-  version="1.0">
+<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">
 
-  <!-- force non-ASCII characters to be output as entities -->
-  <xsl:output encoding="US-ASCII"/>
+  <!-- force non-ASCII characters to be output as entities and produce utf-8
+       declaration manually -->
+  <xsl:output encoding="US-ASCII" omit-xml-declaration="yes"/>
 
-  <xsl:template match="/|@*|node()">
+  <xsl:template match="/">
+    <xsl:text disable-output-escaping="yes">&lt;?xml version="1.0" encoding="utf-8"?&gt;&#x0A;</xsl:text>
     <xsl:copy>
       <xsl:apply-templates select="@*|node()"/>
     </xsl:copy>
   </xsl:template>
 
+  <xsl:template match="node()">
+    <xsl:copy>
+      <xsl:apply-templates select="@*|node()"/>
+    </xsl:copy>
+  </xsl:template>
+
+  <!-- preserve newlines as &#x0A; entities in xsl:text -->
+  <xsl:template match="xsl:text">
+    <xsl:copy>
+      <xsl:apply-templates select="@*"/>
+      <xsl:for-each select="text()">
+        <xsl:call-template name="newline-to-entity">
+          <xsl:with-param name="text" select="."/>
+        </xsl:call-template>
+      </xsl:for-each>
+    </xsl:copy>
+  </xsl:template>
+
+  <xsl:template name="newline-to-entity">
+    <xsl:param name="text"/>
+    <xsl:choose>
+      <xsl:when test="contains($text,'&#x0A;')">
+        <xsl:value-of select="substring-before($text,'&#x0A;')"/>
+        <xsl:text disable-output-escaping="yes">&amp;#x0A;</xsl:text>
+        <xsl:call-template name="newline-to-entity">
+          <xsl:with-param name="text" select="substring-after($text,'&#x0A;')"/>
+        </xsl:call-template>
+      </xsl:when>
+      <xsl:otherwise><xsl:value-of select="$text"/></xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+
+  <!-- detect sequences of several spaces in attributes, which must come from
+       newlines, and mark them with z0eRAR -->
+
+  <xsl:template match="@*">
+    <xsl:attribute name="{name()}" namespace="{namespace-uri()}">
+      <xsl:call-template name="attribute-newlines">
+        <xsl:with-param name="text" select="string(.)"/>
+      </xsl:call-template>
+    </xsl:attribute>
+  </xsl:template>
+
+  <xsl:template name="attribute-newlines">
+    <xsl:param name="text"/>
+    <!-- $mode can be:
+          - 'start' after the first character of a sequence of spaces
+          - 'continue' after the second character of a sequence of spaces
+          - '' at the beginning and after any non-space character -->
+    <xsl:param name="mode"/>
+    <xsl:variable name="char" select="substring($text,1,1)"/>
+    <xsl:choose>
+      <xsl:when test="$char=' '">
+        <xsl:choose>
+          <!-- two consecutive spaces: start a new line -->
+          <xsl:when test="$mode='start'">
+            <xsl:value-of select="'z0eRAR '"/>
+          </xsl:when>
+          <!-- within a sequence of spaces: preserve them -->
+          <xsl:when test="$mode='continue'"><xsl:text> </xsl:text></xsl:when>
+          <!-- first space in a sequence: omit the space for now -->
+          <xsl:otherwise/>
+        </xsl:choose>
+      </xsl:when>
+      <xsl:otherwise>
+        <!-- reintroduce the previous space if it was omitted -->
+        <xsl:if test="$mode='start'"><xsl:text> </xsl:text></xsl:if>
+        <xsl:value-of select="$char"/>
+      </xsl:otherwise>
+    </xsl:choose>
+    <!-- continue as long as $text is non-empty -->
+    <xsl:if test="$text != ''">
+      <xsl:call-template name="attribute-newlines">
+        <xsl:with-param name="text" select="substring($text,2)"/>
+        <xsl:with-param name="mode">
+          <xsl:if test="$char=' '">
+            <xsl:choose>
+              <xsl:when test="$mode != ''">continue</xsl:when>
+              <xsl:otherwise>start</xsl:otherwise>
+            </xsl:choose>
+          </xsl:if>
+        </xsl:with-param>
+      </xsl:call-template>
+    </xsl:if>
+  </xsl:template>
+
 </xsl:stylesheet>
 EoXSLT
 
-my $transform = $xslt_parser->parse_stylesheet(
-  XML::LibXML->load_xml(string => $identity_xslt));
+my $transform = $parser->parse_stylesheet(
+  XML::LibXML->load_xml(string => $xslt));
 my $results = $transform->transform_file($ARGV[0]);
 my $output = $transform->output_as_bytes($results);
 
-sub normalize_content {
-  my ($start, $content) = @_;
-  if ($start eq '<?xml version="1.0" encoding="') {
-    # replace encoding with utf-8
-    return "utf-8"; }
-  if ($start eq '="') {
-    # replace &gt; with > and readd newlines
-    $content =~ s/&gt;/>/g;
-    $content =~ s/([^ ])  /$1\n /g;
-    return $content; }
-  elsif ($start eq '<xsl:text>') {
-    # replace newlines with newline entity
-    $content =~ s/\n/&#x0A;/g;
-    return $content; }
-  elsif ($start eq '<xsl:stylesheet') {
-    # move attributes to own lines
-    $content =~ s/(^|") /$1\n  /g;
-    return $content; }
-  elsif ($start eq '<xsl:output') {
-    # move attributes to own lines
-    $content =~ s/(^|") /$1\n    /g;
-    return $content; } }
+sub lint {
+  my ($magic, $cref, $indent, $tag, $attrs) = @_;
+  if ($magic eq 'z0eRAR') {
+    return "\n"; }
+  elsif ($magic eq '&gt;') {
+    return ">"; }
+  elsif ($cref ne '') {
+    my $digits = $cref > 255 ? "4" : "2";
+    return sprintf("&#x%0${digits}X;",$cref); }
+  elsif ($tag ne '') {
+    return "\n$indent$tag" .
+           $attrs =~ s/(?:^| )(?<attr>[a-z-:]+="[^"]*")/\n$indent    $+{attr}/gr
+           . ">"; } }
 
-sub normalize_entities {
-  my ($code) = @_;
-  my $digits = $code > 255 ? "4" : "2";
-  return sprintf("&#x%0${digits}X;",$code); }
-
-$output =~ s/(?|
-  (^<\?xml\ version="1.0"\ encoding=") ([^"]*) (") | # encoding declaration
-  (=") ([^"]*) (") |                                 # attribute values
-  (<xsl:text>) ([^<]*) (<) |                         # text PCDATA
-  (<xsl:(?:stylesheet|output)) ([^>]*) (>)           # attributes
-  )/$1 . normalize_content($1,$2) . $3/xge;
-
-$output =~ s/&#([0-9]*);/normalize_entities($1)/ge;
+$output =~ s/(?<magic>
+  z0eRAR |                # in-attribute newline
+  (?<!]])&gt; |           # &gt;, unless part of ]]&gt;
+  &\#(?<cref>[0-9]*); |   # decimal character reference
+    \n(?<indent>\ *)      # one of <xsl:stylesheet> or <xsl:output>
+    (?<tag><xsl:stylesheet|<xsl:output)
+    (?<attrs>[^>]*)>
+  )/lint($+{magic},$+{cref},$+{indent},$+{tag},$+{attrs})/xge;
 
 print($output);
