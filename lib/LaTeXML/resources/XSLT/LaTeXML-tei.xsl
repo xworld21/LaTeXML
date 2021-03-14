@@ -1,26 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <xsl:stylesheet
-        version     ="1.0"
-        xmlns:xsl   ="http://www.w3.org/1999/XSL/Transform"
-        xmlns       ="http://www.tei-c.org/ns/1.0"
-        xmlns:ltx   ="http://dlmf.nist.gov/LaTeXML"
-        xmlns:str   ="http://exslt.org/strings"
-        xmlns:m     ="http://www.w3.org/1998/Math/MathML"
-        xmlns:xlink ="http://www.w3.org/1999/xlink"
-        extension-element-prefixes="str"
-        exclude-result-prefixes="ltx str m xlink">
+    xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+    xmlns="http://www.tei-c.org/ns/1.0"
+    xmlns:ltx="http://dlmf.nist.gov/LaTeXML"
+    xmlns:str="http://exslt.org/strings"
+    xmlns:m="http://www.w3.org/1998/Math/MathML"
+    xmlns:xlink="http://www.w3.org/1999/xlink"
+    version="1.0"
+    extension-element-prefixes="str"
+    exclude-result-prefixes="ltx str m xlink">
 
     <xsl:import href="LaTeXML-common.xsl"/>
 
     <xsl:strip-space elements="*"/>
     <xsl:output
-        method = "xml"
-        indent = "yes"
-        encoding = 'utf-8'/>
+        method="xml"
+        indent="yes"
+        encoding="utf-8"/>
 
     <xsl:variable name="footnotes" select="//ltx:note[@role='footnote']"/>
     <xsl:template name="add_classes"/>
-    <xsl:param name="html_ns"></xsl:param>
+    <xsl:param name="html_ns"/>
 
     <xsl:template match="*">
         <xsl:message> The element <xsl:value-of select="name(.)"/> <xsl:if test="@*"> with attributes
@@ -97,14 +97,14 @@
 
     <xsl:template match="ltx:document">
 
-        <TEI xmlns="http://www.tei-c.org/ns/1.0">
+        <TEI>
             <teiHeader>
                 <fileDesc>
                     <titleStmt>
                         <xsl:apply-templates select="ltx:title" mode="front"/>
                     </titleStmt>
                     <publicationStmt>
-                        <publisher></publisher>
+                        <publisher/>
                     </publicationStmt>
                     <sourceDesc>
                         <biblStruct>
@@ -197,11 +197,11 @@
     </xsl:template>
 
     <xsl:template match="ltx:contact[@role='affiliation']" mode="front">
-        <affiliation><xsl:apply-templates select="@*|node()" /></affiliation>
+        <affiliation><xsl:apply-templates select="@*|node()"/></affiliation>
     </xsl:template>
 
     <xsl:template match="ltx:contact[@role='email']" mode="front">
-        <email><xsl:apply-templates select="@*|node()" /></email>
+        <email><xsl:apply-templates select="@*|node()"/></email>
     </xsl:template>
 
     <xsl:template match="ltx:personname" mode="front">
@@ -230,7 +230,7 @@
     </xsl:template>
     <xsl:template match="ltx:abstract" mode="front">
         <abstract>
-            <xsl:apply-templates select="@*|node()" />
+            <xsl:apply-templates select="@*|node()"/>
         </abstract>
     </xsl:template>
 
@@ -244,7 +244,7 @@
 
     <xsl:template match="ltx:document/ltx:title" mode="front">
             <title level="a" type="main">
-                <xsl:apply-templates select="@*|node()" />
+                <xsl:apply-templates select="@*|node()"/>
             </title>
     </xsl:template>
 
@@ -396,7 +396,7 @@
 
     <xsl:template match="ltx:bibliography/ltx:title" mode="back">
         <head>
-            <xsl:apply-templates select="@*|node()" />
+            <xsl:apply-templates select="@*|node()"/>
         </head>
     </xsl:template>
 
@@ -548,7 +548,7 @@
                     <given-names>
                         <xsl:for-each select="str:tokenize(./text(),' ')">
                             <xsl:if test="position()!=last()">
-                                <xsl:value-of select="."/>&#160;
+                                <xsl:value-of select="."/>&#xA0;
                             </xsl:if>
                         </xsl:for-each>
                     </given-names>
@@ -610,7 +610,7 @@
     </xsl:template>
 
     <xsl:template match="ltx:para">
-        <xsl:apply-templates select="@*|node()" />
+        <xsl:apply-templates select="@*|node()"/>
     </xsl:template>
 
     <xsl:template match="ltx:equationgroup">
@@ -650,7 +650,7 @@
 
     <xsl:template match="ltx:p">
         <p>
-            <xsl:apply-templates select="@*|node()" />
+            <xsl:apply-templates select="@*|node()"/>
         </p>
     </xsl:template>
 
@@ -678,7 +678,7 @@
 
     <xsl:template match="ltx:section">
         <div>
-            <xsl:apply-templates select="@*|node()" />
+            <xsl:apply-templates select="@*|node()"/>
         </div>
     </xsl:template>
 
@@ -822,7 +822,7 @@
 
     <xsl:template match="ltx:note[@role='thanks']">
         <p>
-            <xsl:apply-templates select="@*|node()" />
+            <xsl:apply-templates select="@*|node()"/>
         </p>
     </xsl:template>
 
@@ -832,19 +832,19 @@
 
     <xsl:template match="ltx:text[@font='italic']">
         <hi rend="italic">
-            <xsl:apply-templates select="@*|node()" />
+            <xsl:apply-templates select="@*|node()"/>
         </hi>
     </xsl:template>
 
     <xsl:template match="ltx:section/ltx:title">
         <head>
-            <xsl:apply-templates select="@*|node()" />
+            <xsl:apply-templates select="@*|node()"/>
         </head>
     </xsl:template>
 
     <xsl:template match="ltx:cite">
         <xsl:if test="./ltx:ref/@idref">
-            <ref type="bibr" target="{./ltx:ref/@idref}"><xsl:apply-templates select="@*|node()" /></ref>
+            <ref type="bibr" target="{./ltx:ref/@idref}"><xsl:apply-templates select="@*|node()"/></ref>
         </xsl:if>
         <xsl:if test="./ltx:bibref/@bibrefs">
             <xsl:for-each select="str:tokenize(./ltx:bibref/@bibrefs,./ltx:bibref/@yyseparator)">
@@ -864,7 +864,7 @@
     </xsl:template>
 
     <xsl:template match="ltx:ref[@idref and ancestor::ltx:cite]">
-        <xsl:apply-templates select="@*|node()" />
+        <xsl:apply-templates select="@*|node()"/>
     </xsl:template>
 
     <xsl:template match="ltx:ref[@labelref and not(@idref)]">

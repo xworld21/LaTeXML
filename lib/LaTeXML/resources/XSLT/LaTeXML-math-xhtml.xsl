@@ -13,20 +13,20 @@
 \=========================================================ooo==U==ooo=/
 -->
 <xsl:stylesheet
-    version     = "1.0"
-    xmlns:xsl   = "http://www.w3.org/1999/XSL/Transform"
-    xmlns:ltx   = "http://dlmf.nist.gov/LaTeXML"
-    xmlns:m     = "http://www.w3.org/1998/Math/MathML"
-    xmlns:f     = "http://dlmf.nist.gov/LaTeXML/functions"
+    xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+    xmlns:ltx="http://dlmf.nist.gov/LaTeXML"
+    xmlns:m="http://www.w3.org/1998/Math/MathML"
+    xmlns:f="http://dlmf.nist.gov/LaTeXML/functions"
+    version="1.0"
     extension-element-prefixes="f"
-    exclude-result-prefixes = "ltx f">
+    exclude-result-prefixes="ltx f">
 
   <xsl:param name="MathML_NAMESPACE">http://www.w3.org/1998/Math/MathML</xsl:param>
 
   <!-- Use MathML (if available in source) -->
   <xsl:param name="USE_MathML">true</xsl:param>
   <!-- If NOT using MathML, should we avoid using images to represent pure numbers? -->
-  <xsl:param name="USE_NUMBER_IMAGES"></xsl:param>
+  <xsl:param name="USE_NUMBER_IMAGES"/>
 
   <!-- The namespace to use on MathML elements (typically MathML_NAMESPACE or none) -->
   <xsl:param name="mml_ns">
@@ -53,7 +53,7 @@
       </xsl:when>
       <!-- If we reach any Math nested within Math, just copy as-is (should be appropriate target)-->
       <xsl:when test="ancestor::ltx:Math">
-        <xsl:apply-templates mode='copy-foreign'/>
+        <xsl:apply-templates mode="copy-foreign"/>
       </xsl:when>
       <!-- Or use images for math (Ugh!)-->
       <xsl:when test="@imagesrc">
@@ -130,7 +130,7 @@
         <!-- If annotation-xml in a DIFFERENT namespace, copy as foreign markup -->
         <xsl:when test="local-name()='annotation-xml'
                         and not(namespace-uri(child::*) = $MathML_NAMESPACE)">
-          <xsl:apply-templates mode='copy-foreign'/>
+          <xsl:apply-templates mode="copy-foreign"/>
         </xsl:when>
         <!-- otherwise, process more mathml -->
         <xsl:otherwise>
