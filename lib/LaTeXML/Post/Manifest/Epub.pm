@@ -15,8 +15,11 @@ use warnings;
 use File::Find qw(find);
 use URI::file;
 
-# ensure that we can use xhtml: in the xpath queries below
+# HTML5 namespaces for the xpath queries below
 $LaTeXML::Post::Document::XPATH->registerNS('xhtml' => 'http://www.w3.org/1999/xhtml');
+$LaTeXML::Post::Document::XPATH->registerNS('m'     => 'http://www.w3.org/1998/Math/MathML');
+$LaTeXML::Post::Document::XPATH->registerNS('svg'   => 'http://www.w3.org/2000/svg');
+$LaTeXML::Post::Document::XPATH->registerNS('xlink' => 'http://www.w3.org/1999/xlink');
 
 our $uuid_tiny_installed;
 
@@ -68,6 +71,15 @@ sub new {
   my ($class, %options) = @_;
   my $self = $class->SUPER::new(%options);
   return $self; }
+
+sub has_scripts {
+  my ($doc) = @_;
+  # check for script elements or event handlers
+  return $doc->findnode('//xhtml:script | //svg:script'
+      . ' | //@xhtml:*[starts-with(name(),"on")]'
+      . ' | //@m:*[starts-with(name(),"on")]'
+      . ' | //@svg:*[starts-with(name(),"on")]');
+}
 
 sub initialize {
   my ($self, $doc) = @_;
@@ -201,8 +213,9 @@ sub process {
       $item->setAttribute('href',       $item_url);
       $item->setAttribute('media-type', "application/xhtml+xml");
       my @properties;
-      push @properties, 'mathml' if $doc->findnode('//*[local-name() = "math"]');
-      push @properties, 'svg'    if $doc->findnode('//*[local-name() = "svg"]');
+      push @properties, 'scripted' if has_scripts($doc);
+      push @properties, 'mathml'   if $doc->findnode('//m:*');
+      push @properties, 'svg'      if $doc->findnode('//svg:*');
       my $properties = join(" ", @properties);
       $item->setAttribute('properties', $properties) if $properties;
 
