@@ -15,11 +15,18 @@ use warnings;
 use File::Find qw(find);
 use URI::file;
 
-# HTML5 namespaces for the xpath queries below
-$LaTeXML::Post::Document::XPATH->registerNS('xhtml' => 'http://www.w3.org/1999/xhtml');
-$LaTeXML::Post::Document::XPATH->registerNS('m'     => 'http://www.w3.org/1998/Math/MathML');
-$LaTeXML::Post::Document::XPATH->registerNS('svg'   => 'http://www.w3.org/2000/svg');
-$LaTeXML::Post::Document::XPATH->registerNS('xlink' => 'http://www.w3.org/1999/xlink');
+# HTML5 namespaces
+our $XPATH = $LaTeXML::Post::Document::XPATH;
+$XPATH->registerNS('xhtml' => 'http://www.w3.org/1999/xhtml');
+$XPATH->registerNS('m'     => 'http://www.w3.org/1998/Math/MathML');
+$XPATH->registerNS('svg'   => 'http://www.w3.org/2000/svg');
+
+our $xpath_mathml   = '//m:math';
+our $xpath_svg      = '//svg:svg';
+our $xpath_scripted = '//xhtml:script | //svg:script'
+  . ' | //xhtml:*/@*[starts-with(name(),"on")]'
+  . ' | //m:*/@*[starts-with(name(),"on")]'
+  . ' | //svg:*/@*[starts-with(name(),"on")]';
 
 our $uuid_tiny_installed;
 
@@ -71,15 +78,6 @@ sub new {
   my ($class, %options) = @_;
   my $self = $class->SUPER::new(%options);
   return $self; }
-
-sub has_scripts {
-  my ($doc) = @_;
-  # check for script elements or event handlers
-  return $doc->findnode('//xhtml:script | //svg:script'
-      . ' | //@xhtml:*[starts-with(name(),"on")]'
-      . ' | //@m:*[starts-with(name(),"on")]'
-      . ' | //@svg:*[starts-with(name(),"on")]');
-}
 
 sub initialize {
   my ($self, $doc) = @_;
@@ -213,9 +211,9 @@ sub process {
       $item->setAttribute('href',       $item_url);
       $item->setAttribute('media-type', "application/xhtml+xml");
       my @properties;
-      push @properties, 'scripted' if has_scripts($doc);
-      push @properties, 'mathml'   if $doc->findnode('//m:*');
-      push @properties, 'svg'      if $doc->findnode('//svg:*');
+      push @properties, 'scripted' if $doc->findnode($xpath_scripted);
+      push @properties, 'mathml'   if $doc->findnode($xpath_mathml);
+      push @properties, 'svg'      if $doc->findnode($xpath_svg);
       my $properties = join(" ", @properties);
       $item->setAttribute('properties', $properties) if $properties;
 
@@ -272,7 +270,17 @@ sub finalize {
     my $file_url  = URI::file->new($file);
     $file_item->setAttribute('id',         url_id($file_url));
     $file_item->setAttribute('href',       $file_url);
-    $file_item->setAttribute('media-type', $file_type); }
+    $file_item->setAttribute('media-type', $file_type);
+
+    if (lc($ext) eq 'svg') {
+      my @properties;
+      my $doc = XML::LibXML->load_xml(location => pathname_concat($OPS_directory, $file));
+      push @properties, 'scripted' if $XPATH->findnodes($xpath_scripted, $doc);
+      push @properties, 'mathml  ' if $XPATH->findnodes($xpath_mathml,   $doc);
+      my $properties = join(" ", @properties);
+      $file_item->setAttribute('properties', $properties) if $properties; }
+
+  }
 
   # Write toc.ncx file to disk
   my $nav_count = 0;
