@@ -20,13 +20,37 @@ our $XPATH = $LaTeXML::Post::Document::XPATH;
 $XPATH->registerNS('xhtml' => 'http://www.w3.org/1999/xhtml');
 $XPATH->registerNS('m'     => 'http://www.w3.org/1998/Math/MathML');
 $XPATH->registerNS('svg'   => 'http://www.w3.org/2000/svg');
+$XPATH->registerNS('xlink' => 'http://www.w3.org/1999/xlink');
 
 our $xpath_mathml   = '//m:math';
 our $xpath_svg      = '//svg:svg';
-our $xpath_scripted = '//xhtml:script | //svg:script'
-  . ' | //xhtml:*/@*[starts-with(name(),"on")]'
+our $xpath_scripted = '//xhtml:script | //svg:script'    # <script>
+  . ' | //xhtml:form'                                    # <form>
+  . ' | //xhtml:*/@*[starts-with(name(),"on")]'          # event handlers
   . ' | //m:*/@*[starts-with(name(),"on")]'
-  . ' | //svg:*/@*[starts-with(name(),"on")]';
+  . ' | //svg:*/@*[starts-with(name(),"on")]'
+  ;
+
+# not checked:
+# - xhtml:base/@href (changes the meaning of all the other URLs)
+# - xhtml:(img|source)/@srcset (format: "URL1 width1,URL2 width2,..." but URL may contain commas)
+# - content of xhtml:iframe/@srcdoc (HTML, but in XML syntax?)
+# - any CSS (inline or otherwise)
+our $xpath_resource_urls = '//xhtml:*/@src'    # <audio>, ..., <video>
+  . ' | //xhtml:link[contains(concat(" ",@rel," ")," icon ")'
+  . ' or contains(concat(" ",@rel," ")," stylesheet ")]/@href'
+  . ' | //xhtml:*/@*[name() = "background"]'    # <body>, <table>, <td>, <th>
+  . ' | //xhtml:object/@data'
+  . ' | //xhtml:video/@poster'
+  # some @href's are "within the current document", but check them anyway as the spec may change
+  . ' | //svg:*[local-name() != "a"]/@href | //svg:*[local-name() != "a"]/@xlink:href'
+  . ' | //m:annotation/@src | //m:annotation-xml/@src'
+  ;
+our $xpath_resource_sets     = '//xhtml:img/@srcset | //xhtml:source/@srcset';
+our $xpath_resource_css_urls = '//svg:*/@*[starts-with(normalize-space(),"url(")]';
+our $xpath_css               = '//xhtml:*/@style | //svg:*/@style | //m:*/@style'
+  . ' //xhtml:style/text() | //svg:style/text()'
+  ;
 
 our $uuid_tiny_installed;
 
