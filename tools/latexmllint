@@ -251,7 +251,7 @@ sub doPerlcritic {
   my $profile = catfile($TOOLDIR, 'latexml.perlcritic');
   my $themes = join(' and ', map { 'not non_' . $_ } keys %$classes);
 #  my $critique = `$PERLCRITIC  --profile=$profile --theme='$themes' --severity=$SEVERITY --quiet $file`;
-  my $critique = `$PERL -I $TOOLDIR $PERLCRITIC  --profile=$profile --theme='$themes' --severity=$SEVERITY --quiet --verbose=8 $file`;
+  my $critique = `PERL5LIB='$TOOLDIR' $PERLCRITIC --profile=$profile --theme='$themes' --severity=$SEVERITY --quiet --verbose=8 $file`;
   if ($critique eq "") {    # No errors and no policy violations
     print " conformance is OK.\n" if $VERBOSITY > 0; }
   elsif ($critique) {       # Policy violations
