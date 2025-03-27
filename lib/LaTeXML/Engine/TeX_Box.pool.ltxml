@@ -334,7 +334,9 @@ Tag('svg:foreignObject', autoOpen => 1, autoClose => 1,
     if ($whatsit) {
       my ($w, $h, $d) = $whatsit->getSize;
       $h = $h->add($d)->pxValue;
-      my $ht = $node->getAttribute('height') // $h;
+      my $ht    = $node->getAttribute('height') // $h;
+      my $style = $node->getAttribute('style')  // '';
+      $node->setAttribute(style => $style . ($style ? ';' : '') . '--lx-foreignobject-depth:' . $d->pxValue . 'px;--lx-foreignobject-height:' . $ht . 'px');
       $node->setAttribute(width     => $w->pxValue) unless $node->hasAttribute('width');
       $node->setAttribute(height    => $ht)         unless $node->hasAttribute('height');
       $node->setAttribute(transform => "matrix(1 0 0 -1 0 $ht)");
